@@ -37,10 +37,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
@@ -81,6 +85,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.Calendar
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -722,7 +727,7 @@ object Board {
 }
 
 // ============================================================
-// LEVELS — 40 уровней
+// LEVELS — 60 уровней
 // ============================================================
 
 enum class Difficulty(val label: String) {
@@ -880,7 +885,118 @@ object Levels {
             goalType = GoalType.HEART, heartCount = 20,
             obstacles = listOf(
                 "#......#", ".222222.", "..#..#..", "..2LL2..",
-                "..2LL2..", "..#..#..", ".222222.", "#......#"))
+                "..2LL2..", "..#..#..", ".222222.", "#......#")),
+
+        // === МИР 5: после финала ===
+        LevelConfig(41, 32, 7, 5500, Difficulty.SUPER_HARD, 105,
+            obstacles = listOf(
+                "##....##", ".2....2.", "..2222..", "........",
+                "........", "..2222..", ".2....2.", "##....##")),
+        LevelConfig(42, 34, 7, 0, Difficulty.SUPER_HARD, 110,
+            goalType = GoalType.COLLECT_COLOR, goalColor = 3, goalCount = 35,
+            obstacles = listOf(
+                "........", "L222222L", "........", "..2222..",
+                "..2222..", "........", "L222222L", "........")),
+        LevelConfig(43, 34, 7, 0, Difficulty.SUPER_HARD, 115,
+            goalType = GoalType.BREAK_ICE,
+            obstacles = listOf(
+                "2......2", ".2....2.", "..2222..", "...22...",
+                "...22...", "..2222..", ".2....2.", "2......2")),
+        LevelConfig(44, 36, 7, 6000, Difficulty.SUPER_HARD, 120,
+            obstacles = listOf(
+                "........", "..#..#..", ".2....2.", "..2222..",
+                "..2222..", ".2....2.", "..#..#..", "........")),
+        LevelConfig(45, 36, 7, 0, Difficulty.SUPER_HARD, 125,
+            goalType = GoalType.HEART, heartCount = 22,
+            obstacles = listOf(
+                "L......L", ".222222.", "..2..2..", "..2..2..",
+                "..2..2..", "..2..2..", ".222222.", "L......L")),
+
+        // === МИР 6: хардкор ===
+        LevelConfig(46, 32, 7, 6500, Difficulty.SUPER_HARD, 130,
+            obstacles = listOf(
+                "#......#", ".222222.", "..#..#..", "..2LL2..",
+                "..2LL2..", "..#..#..", ".222222.", "#......#")),
+        LevelConfig(47, 34, 7, 0, Difficulty.SUPER_HARD, 135,
+            goalType = GoalType.COLLECT_COLOR, goalColor = 5, goalCount = 40,
+            obstacles = listOf(
+                "22222222", "2......2", "2......2", "2..LL..2",
+                "2..LL..2", "2......2", "2......2", "22222222")),
+        LevelConfig(48, 34, 7, 0, Difficulty.SUPER_HARD, 140,
+            goalType = GoalType.BREAK_ICE,
+            obstacles = listOf(
+                "22222222", "21111112", "21111112", "21111112",
+                "21111112", "21111112", "21111112", "22222222")),
+        LevelConfig(49, 36, 7, 7000, Difficulty.SUPER_HARD, 150,
+            obstacles = listOf(
+                "#2....2#", "22....22", "........", "........",
+                "........", "........", "22....22", "#2....2#")),
+        LevelConfig(50, 40, 7, 0, Difficulty.SUPER_HARD, 200,
+            goalType = GoalType.HEART, heartCount = 25,
+            obstacles = listOf(
+                "#......#", ".222222.", "..#..#..", "..2LL2..",
+                "..2LL2..", "..#..#..", ".222222.", "#......#")),
+
+        // === МИР 7: марафон ===
+        LevelConfig(51, 34, 7, 7500, Difficulty.SUPER_HARD, 100),
+        LevelConfig(52, 34, 7, 0, Difficulty.SUPER_HARD, 110,
+            goalType = GoalType.COLLECT_COLOR, goalColor = 0, goalCount = 40),
+        LevelConfig(53, 34, 7, 0, Difficulty.SUPER_HARD, 120,
+            goalType = GoalType.BREAK_ICE,
+            obstacles = listOf(
+                "22222222", "2......2", "2.2222.2", "2.2..2.2",
+                "2.2..2.2", "2.2222.2", "2......2", "22222222")),
+        LevelConfig(54, 36, 7, 8000, Difficulty.SUPER_HARD, 130),
+        LevelConfig(55, 36, 7, 0, Difficulty.SUPER_HARD, 140,
+            goalType = GoalType.HEART, heartCount = 24),
+
+        // === МИР 8: финальный ===
+        LevelConfig(56, 34, 7, 8500, Difficulty.SUPER_HARD, 150,
+            obstacles = listOf(
+                "L......L", "2222222.", "........", "..2..2..",
+                "..2..2..", "........", ".2222222", "L......L")),
+        LevelConfig(57, 34, 7, 0, Difficulty.SUPER_HARD, 160,
+            goalType = GoalType.COLLECT_COLOR, goalColor = 6, goalCount = 45),
+        LevelConfig(58, 36, 7, 0, Difficulty.SUPER_HARD, 170,
+            goalType = GoalType.BREAK_ICE,
+            obstacles = listOf(
+                "11111111", "12222221", "12222221", "12222221",
+                "12222221", "12222221", "12222221", "11111111")),
+        LevelConfig(59, 38, 7, 9000, Difficulty.SUPER_HARD, 180),
+        LevelConfig(60, 45, 7, 0, Difficulty.SUPER_HARD, 300,
+            goalType = GoalType.HEART, heartCount = 30,
+            obstacles = listOf(
+                "#222222#", "22222222", "22LLLL22", "22LLLL22",
+                "22LLLL22", "22LLLL22", "22222222", "#222222#"))
+    )
+}
+
+// ============================================================
+// ACHIEVEMENTS
+// ============================================================
+
+data class Achievement(
+    val id: Int,
+    val title: String,
+    val description: String,
+    val target: Int,
+    val emoji: String
+)
+
+object Achievements {
+    val all: List<Achievement> = listOf(
+        Achievement(1, "Первая победа", "Пройди 1 уровень", 1, "🎯"),
+        Achievement(2, "Новичок", "Пройди 5 уровней", 5, "🌱"),
+        Achievement(3, "Опытный", "Пройди 15 уровней", 15, "⭐"),
+        Achievement(4, "Ветеран", "Пройди 30 уровней", 30, "🏅"),
+        Achievement(5, "Мастер", "Пройди 50 уровней", 50, "👑"),
+        Achievement(6, "Богач", "Накопи 500 монет за всё время", 500, "💰"),
+        Achievement(7, "Миллионер", "Накопи 2000 монет за всё время", 2000, "💎"),
+        Achievement(8, "Сердцеед", "Собери 50 сердечек", 50, "❤"),
+        Achievement(9, "Ледокол", "Разбей 100 льда", 100, "❄"),
+        Achievement(10, "Радужный мастер", "Создай 10 радужных камней", 10, "🌈"),
+        Achievement(11, "Комбо", "Сделай каскад ×3 (5+ матчей подряд)", 3, "⚡"),
+        Achievement(12, "Без бустеров", "Пройди 10 уровней без бустеров", 10, "🚫")
     )
 }
 
@@ -896,6 +1012,19 @@ class ProgressStore(context: Context) {
     var lastDailyBonusTime by mutableStateOf(prefs.getLong("dailyTime", 0L))
     var dailyBonusStreak by mutableIntStateOf(prefs.getInt("dailyStreak", 0))
 
+    // Достижения — прогресс по каждому
+    var totalWins by mutableIntStateOf(prefs.getInt("totalWins", 0))
+    var totalCoinsEarned by mutableIntStateOf(prefs.getInt("totalCoinsEarned", 0))
+    var totalHeartsCollected by mutableIntStateOf(prefs.getInt("totalHearts", 0))
+    var totalIceBroken by mutableIntStateOf(prefs.getInt("totalIce", 0))
+    var totalRainbows by mutableIntStateOf(prefs.getInt("totalRainbows", 0))
+    var bestCascade by mutableIntStateOf(prefs.getInt("bestCascade", 0))
+    var noBoosterWins by mutableIntStateOf(prefs.getInt("noBoosterWins", 0))
+    var unlockedAchievements by mutableStateOf(loadAchievements())
+
+    // Испытание дня
+    var lastDailyChallengeDate by mutableStateOf(prefs.getString("dailyChallengeDate", "") ?: "")
+
     private fun loadScores(): Map<Int, Int> {
         val s = prefs.getString("scores", "") ?: ""
         return s.split(",").filter { it.isNotBlank() }.mapNotNull { part ->
@@ -907,17 +1036,32 @@ class ProgressStore(context: Context) {
         }.toMap()
     }
 
+    private fun loadAchievements(): Set<Int> {
+        val s = prefs.getString("achievements", "") ?: ""
+        return s.split(",").filter { it.isNotBlank() }.mapNotNull { it.toIntOrNull() }.toSet()
+    }
+
     fun recordWin(levelId: Int, score: Int, rewardCoins: Int) {
         val prev = bestScores[levelId] ?: 0
         if (score > prev) bestScores = bestScores + (levelId to score)
         coins += rewardCoins
+        totalCoinsEarned += rewardCoins
+        totalWins += 1
         if (levelId + 1 > unlockedLevel) unlockedLevel = levelId + 1
         save()
     }
-    fun addCoins(amount: Int) { coins += amount; save() }
+
+    fun addCoins(amount: Int) {
+        coins += amount
+        totalCoinsEarned += amount
+        save()
+    }
+
     fun spendCoins(amount: Int): Boolean {
         if (coins < amount) return false
-        coins -= amount; save(); return true
+        coins -= amount
+        save()
+        return true
     }
 
     fun canClaimDaily(): Boolean {
@@ -928,31 +1072,96 @@ class ProgressStore(context: Context) {
     fun nextDailyBonusAmount(): Int {
         val day = (dailyBonusStreak % 7) + 1
         return when (day) {
-            1 -> 20
-            2 -> 30
-            3 -> 50
-            4 -> 75
-            5 -> 100
-            6 -> 150
-            else -> 300
+            1 -> 20; 2 -> 30; 3 -> 50; 4 -> 75; 5 -> 100; 6 -> 150; else -> 300
         }
     }
 
     fun claimDaily(): Int {
         val amount = nextDailyBonusAmount()
         coins += amount
+        totalCoinsEarned += amount
         lastDailyBonusTime = System.currentTimeMillis()
         dailyBonusStreak = (dailyBonusStreak + 1) % 7
         save()
         return amount
     }
 
+    // === Ежедневное испытание ===
+    fun todayDateKey(): String {
+        val cal = Calendar.getInstance()
+        return "%04d-%02d-%02d".format(
+            cal.get(Calendar.YEAR),
+            cal.get(Calendar.MONTH) + 1,
+            cal.get(Calendar.DAY_OF_MONTH)
+        )
+    }
+
+    fun canPlayDailyChallenge(): Boolean = lastDailyChallengeDate != todayDateKey()
+
+    fun markDailyChallengeCompleted() {
+        lastDailyChallengeDate = todayDateKey()
+        save()
+    }
+
+    fun dailyChallengeSeed(): Long {
+        val cal = Calendar.getInstance()
+        return cal.get(Calendar.YEAR) * 10000L +
+                (cal.get(Calendar.MONTH) + 1) * 100L +
+                cal.get(Calendar.DAY_OF_MONTH)
+    }
+
+    // === Достижения ===
+    fun checkAchievements(): List<Achievement> {
+        val newlyUnlocked = mutableListOf<Achievement>()
+        for (a in Achievements.all) {
+            if (a.id in unlockedAchievements) continue
+            val progress = progressFor(a.id)
+            if (progress >= a.target) {
+                unlockedAchievements = unlockedAchievements + a.id
+                newlyUnlocked.add(a)
+            }
+        }
+        if (newlyUnlocked.isNotEmpty()) save()
+        return newlyUnlocked
+    }
+
+    fun progressFor(achievementId: Int): Int = when (achievementId) {
+        1, 2, 3, 4, 5 -> totalWins
+        6, 7 -> totalCoinsEarned
+        8 -> totalHeartsCollected
+        9 -> totalIceBroken
+        10 -> totalRainbows
+        11 -> bestCascade
+        12 -> noBoosterWins
+        else -> 0
+    }
+
+    fun recordHeartsCollected(n: Int) { totalHeartsCollected += n; save() }
+    fun recordIceBroken(n: Int) { totalIceBroken += n; save() }
+    fun recordRainbowCreated() { totalRainbows += 1; save() }
+    fun recordCascade(level: Int) {
+        if (level > bestCascade) { bestCascade = level; save() }
+    }
+    fun recordNoBoosterWin() { noBoosterWins += 1; save() }
+
     private fun save() {
         val scoresStr = bestScores.entries.joinToString(",") { "${it.key}:${it.value}" }
-        prefs.edit().putInt("unlocked", unlockedLevel).putInt("coins", coins)
+        val achStr = unlockedAchievements.joinToString(",") { it.toString() }
+        prefs.edit()
+            .putInt("unlocked", unlockedLevel)
+            .putInt("coins", coins)
             .putString("scores", scoresStr)
             .putLong("dailyTime", lastDailyBonusTime)
             .putInt("dailyStreak", dailyBonusStreak)
+            .putInt("totalWins", totalWins)
+            .putInt("totalCoinsEarned", totalCoinsEarned)
+            .putInt("totalHearts", totalHeartsCollected)
+            .putInt("totalIce", totalIceBroken)
+            .putInt("totalRainbows", totalRainbows)
+            .putInt("bestCascade", bestCascade)
+            .putInt("noBoosterWins", noBoosterWins)
+            .putString("achievements", achStr)
+            .putString("dailyChallengeDate", lastDailyChallengeDate)
             .apply()
     }
 }
@@ -987,7 +1196,8 @@ enum class GamePhase { PLAYING, WON, LOST }
 
 class GameEngine(
     val level: LevelConfig,
-    private val rng: Random = Random.Default
+    private val rng: Random = Random.Default,
+    val isDailyChallenge: Boolean = false
 ) {
     private var idCounter = 0
     private fun nextId(): Int = ++idCounter
@@ -1014,6 +1224,18 @@ class GameEngine(
     var isAnimating by mutableStateOf(false)
         private set
     var activeBooster by mutableStateOf<BoosterType?>(null)
+        private set
+
+    // Для достижений
+    var heartsThisSession by mutableIntStateOf(0)
+        private set
+    var iceBrokenThisSession by mutableIntStateOf(0)
+        private set
+    var rainbowsCreatedThisSession by mutableIntStateOf(0)
+        private set
+    var maxCascadeThisSession by mutableIntStateOf(0)
+        private set
+    var usedBooster by mutableStateOf(false)
         private set
 
     suspend fun trySwap(a: Pair<Int, Int>, b: Pair<Int, Int>) {
@@ -1062,11 +1284,15 @@ class GameEngine(
         for ((rr, cc) in affected) if (newIce[rr][cc] > 0) { newIce[rr][cc] = 0; iceBroken++ }
         if (iceBroken > 0) {
             iceGrid = newIce.map { it.toList() }
+            iceBrokenThisSession += iceBroken
             if (level.goalType == GoalType.BREAK_ICE) goalProgress += iceBroken
         }
 
         val heartsCleared = affected.count { (rr, cc) -> grid[rr][cc].hasHeart }
-        if (heartsCleared > 0 && level.goalType == GoalType.HEART) goalProgress += heartsCleared
+        if (heartsCleared > 0) {
+            heartsThisSession += heartsCleared
+            if (level.goalType == GoalType.HEART) goalProgress += heartsCleared
+        }
 
         if (level.goalType == GoalType.COLLECT_COLOR && level.goalColor != null) {
             val count = affected.count { (rr, cc) -> grid[rr][cc].type == level.goalColor }
@@ -1090,9 +1316,11 @@ class GameEngine(
             if (matches.isEmpty()) break
 
             cascadeLevel++
+            if (cascadeLevel > maxCascadeThisSession) maxCascadeThisSession = cascadeLevel
             val multiplier = min(3f, 1f + (cascadeLevel - 1) * 0.5f)
 
             val rainbowAt = Board.findFiveInRow(grid)
+            if (rainbowAt != null) rainbowsCreatedThisSession += 1
 
             val newIce = iceGrid.map { it.toMutableList() }
             var iceBroken = 0
@@ -1101,13 +1329,17 @@ class GameEngine(
             }
             if (iceBroken > 0) {
                 iceGrid = newIce.map { it.toList() }
+                iceBrokenThisSession += iceBroken
                 if (level.goalType == GoalType.BREAK_ICE) goalProgress += iceBroken
             }
 
             val heartsCleared = matches.count { (r, c) ->
                 grid[r][c].hasHeart && newIce[r][c] == 0
             }
-            if (heartsCleared > 0 && level.goalType == GoalType.HEART) goalProgress += heartsCleared
+            if (heartsCleared > 0) {
+                heartsThisSession += heartsCleared
+                if (level.goalType == GoalType.HEART) goalProgress += heartsCleared
+            }
 
             if (level.goalType == GoalType.COLLECT_COLOR && level.goalColor != null) {
                 val target = level.goalColor
@@ -1162,6 +1394,7 @@ class GameEngine(
         if (activeBooster != null && activeBooster != BoosterType.SHUFFLE) {
             val booster = activeBooster!!
             activeBooster = null
+            usedBooster = true
             scope.launch { applyBooster(booster, r, c) }
             return
         }
@@ -1184,6 +1417,7 @@ class GameEngine(
 
     fun requestBooster(type: BoosterType, scope: CoroutineScope) {
         if (phase != GamePhase.PLAYING || isAnimating) return
+        usedBooster = true
         if (type == BoosterType.SHUFFLE) scope.launch { applyShuffle() }
         else activeBooster = type
     }
@@ -1220,11 +1454,15 @@ class GameEngine(
             for ((rr, cc) in affected) if (newIce[rr][cc] > 0) { newIce[rr][cc] = 0; iceBroken++ }
             if (iceBroken > 0) {
                 iceGrid = newIce.map { it.toList() }
+                iceBrokenThisSession += iceBroken
                 if (level.goalType == GoalType.BREAK_ICE) goalProgress += iceBroken
             }
 
             val heartsCleared = affected.count { (rr, cc) -> grid[rr][cc].hasHeart && !grid[rr][cc].stone }
-            if (heartsCleared > 0 && level.goalType == GoalType.HEART) goalProgress += heartsCleared
+            if (heartsCleared > 0) {
+                heartsThisSession += heartsCleared
+                if (level.goalType == GoalType.HEART) goalProgress += heartsCleared
+            }
 
             if (level.goalType == GoalType.COLLECT_COLOR && level.goalColor != null) {
                 val count = affected.count { (rr, cc) ->
@@ -1274,6 +1512,11 @@ class GameEngine(
         phase = GamePhase.PLAYING
         isAnimating = false
         activeBooster = null
+        usedBooster = false
+        heartsThisSession = 0
+        iceBrokenThisSession = 0
+        rainbowsCreatedThisSession = 0
+        maxCascadeThisSession = 0
     }
 }
 
@@ -1281,40 +1524,61 @@ class GameEngine(
 // APP ROOT
 // ============================================================
 
+enum class Screen { MAP, GAME, DAILY, ACHIEVEMENTS }
+
 @Composable
 fun AppRoot() {
     val context = LocalContext.current
     val progress = remember { ProgressStore(context) }
     val ads: AdsController = remember { NoOpAdsController() }
+    var screen by remember { mutableStateOf(Screen.MAP) }
     var currentLevelId by remember { mutableStateOf<Int?>(null) }
-    var showDaily by remember { mutableStateOf(progress.canClaimDaily()) }
+    var showDaily by remember { mutableStateOf(false) }
+    var newAchievements by remember { mutableStateOf<List<Achievement>>(emptyList()) }
 
     GradientBg {
-        AnimatedContent(
-            targetState = currentLevelId,
-            transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
-            label = "screen"
-        ) { lvlId ->
-            if (lvlId == null) {
+        when (screen) {
+            Screen.MAP -> {
                 LevelMapScreen(
                     levels = Levels.all,
                     progress = progress,
-                    onPlay = { currentLevelId = it },
+                    onPlay = { currentLevelId = it; screen = Screen.GAME },
                     canClaimDaily = progress.canClaimDaily(),
-                    onClaimDaily = { showDaily = true }
+                    onClaimDaily = { showDaily = true },
+                    canPlayDailyChallenge = progress.canPlayDailyChallenge(),
+                    onPlayDailyChallenge = { screen = Screen.DAILY },
+                    onOpenAchievements = { screen = Screen.ACHIEVEMENTS }
                 )
-            } else {
+            }
+            Screen.GAME -> {
+                val lvlId = currentLevelId
                 val level = Levels.all.firstOrNull { it.id == lvlId } ?: Levels.all.first()
                 key(lvlId) {
                     GameScreen(
-                        level = level, progress = progress, ads = ads,
-                        onExitToMap = { currentLevelId = null },
+                        level = level,
+                        progress = progress,
+                        ads = ads,
+                        onExitToMap = { screen = Screen.MAP },
                         onNext = {
-                            if (lvlId < Levels.all.size) currentLevelId = lvlId + 1
-                            else currentLevelId = null
-                        }
+                            if (lvlId != null && lvlId < Levels.all.size) currentLevelId = lvlId + 1
+                            else screen = Screen.MAP
+                        },
+                        onNewAchievements = { newAchievements = it }
                     )
                 }
+            }
+            Screen.DAILY -> {
+                DailyChallengeScreen(
+                    progress = progress,
+                    ads = ads,
+                    onExit = { screen = Screen.MAP }
+                )
+            }
+            Screen.ACHIEVEMENTS -> {
+                AchievementsScreen(
+                    progress = progress,
+                    onBack = { screen = Screen.MAP }
+                )
             }
         }
 
@@ -1326,6 +1590,13 @@ fun AppRoot() {
                     showDaily = false
                 },
                 onSkip = { showDaily = false }
+            )
+        }
+
+        if (newAchievements.isNotEmpty()) {
+            NewAchievementsDialog(
+                achievements = newAchievements,
+                onClose = { newAchievements = emptyList() }
             )
         }
     }
@@ -1341,18 +1612,33 @@ fun LevelMapScreen(
     progress: ProgressStore,
     onPlay: (Int) -> Unit,
     canClaimDaily: Boolean,
-    onClaimDaily: () -> Unit
+    onClaimDaily: () -> Unit,
+    canPlayDailyChallenge: Boolean,
+    onPlayDailyChallenge: () -> Unit,
+    onOpenAchievements: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.height(12.dp))
-        Text("MATCH 3", fontSize = 34.sp, fontWeight = FontWeight.Black,
-            color = Accent, letterSpacing = 4.sp)
-        Spacer(Modifier.height(4.dp))
-        Text("Собери три в ряд", fontSize = 14.sp, color = Color.White.copy(alpha = 0.6f))
-        Spacer(Modifier.height(20.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("MATCH 3", fontSize = 28.sp, fontWeight = FontWeight.Black,
+                color = Accent, letterSpacing = 4.sp)
+            Box(
+                modifier = Modifier.clip(RoundedCornerShape(20.dp))
+                    .background(CardBg).clickable { onOpenAchievements() }
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Text("🏆", fontSize = 20.sp)
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -1374,12 +1660,25 @@ fun LevelMapScreen(
                         .clickable { onClaimDaily() }
                         .padding(horizontal = 14.dp, vertical = 10.dp)
                 ) {
-                    Text("🎁 Бонус", fontSize = 15.sp,
+                    Text("🎁", fontSize = 20.sp,
                         fontWeight = FontWeight.Bold, color = Color(0xFF3E2723))
                 }
             }
+            Box(
+                modifier = Modifier.clip(RoundedCornerShape(30.dp))
+                    .background(if (canPlayDailyChallenge) Accent.copy(alpha = 0.85f) else CardBg)
+                    .clickable(enabled = canPlayDailyChallenge) { onPlayDailyChallenge() }
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    if (canPlayDailyChallenge) "⚔ Испытание" else "⚔ ✓",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (canPlayDailyChallenge) Color(0xFF3E2723) else Color.White.copy(alpha = 0.5f)
+                )
+            }
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(20.dp))
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -1448,13 +1747,6 @@ fun LevelCard(level: LevelConfig, unlocked: Boolean, bestScore: Int, onClick: ()
                             color = Color(0xFFFF8A80), fontWeight = FontWeight.Bold)
                     }
                 }
-
-                if (level.obstacles.isNotEmpty()
-                    && level.goalType != GoalType.BREAK_ICE
-                    && level.goalType != GoalType.HEART) {
-                    Spacer(Modifier.height(2.dp))
-                    Text("🧩", fontSize = 11.sp)
-                }
             } else {
                 Text("🔒", fontSize = 34.sp)
             }
@@ -1496,6 +1788,172 @@ fun DailyBonusDialog(progress: ProgressStore, onClaim: () -> Unit, onSkip: () ->
 }
 
 // ============================================================
+// ACHIEVEMENTS SCREEN
+// ============================================================
+
+@Composable
+fun AchievementsScreen(progress: ProgressStore, onBack: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("🏆 Достижения", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Accent)
+            Box(
+                modifier = Modifier.clip(RoundedCornerShape(20.dp))
+                    .background(CardBg).clickable { onBack() }
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Text("← Назад", color = Color.White, fontSize = 14.sp)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "${progress.unlockedAchievements.size} / ${Achievements.all.size} получено",
+            fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f)
+        )
+        Spacer(Modifier.height(16.dp))
+
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(Achievements.all) { a ->
+                val unlocked = a.id in progress.unlockedAchievements
+                val current = progress.progressFor(a.id).coerceAtMost(a.target)
+                AchievementRow(a, unlocked, current)
+            }
+        }
+    }
+}
+
+@Composable
+fun AchievementRow(a: Achievement, unlocked: Boolean, current: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (unlocked) CardBg else CardBg.copy(alpha = 0.5f))
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = if (unlocked) a.emoji else "🔒",
+            fontSize = 28.sp
+        )
+        Spacer(Modifier.size(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                a.title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (unlocked) Color.White else Color.White.copy(alpha = 0.5f)
+            )
+            Text(
+                a.description,
+                fontSize = 12.sp,
+                color = Color.White.copy(alpha = 0.6f)
+            )
+            Spacer(Modifier.height(6.dp))
+            LinearProgressIndicator(
+                progress = { current.toFloat() / a.target },
+                modifier = Modifier.fillMaxWidth().height(5.dp)
+                    .clip(RoundedCornerShape(3.dp)),
+                color = if (unlocked) Gold else Accent.copy(alpha = 0.5f),
+                trackColor = Color.White.copy(alpha = 0.1f)
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                "$current / ${a.target}",
+                fontSize = 10.sp,
+                color = Color.White.copy(alpha = 0.5f)
+            )
+        }
+    }
+}
+
+@Composable
+fun NewAchievementsDialog(achievements: List<Achievement>, onClose: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text("🏆 Новое достижение!", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()) {
+                achievements.forEach { a ->
+                    Spacer(Modifier.height(8.dp))
+                    Text(a.emoji, fontSize = 42.sp)
+                    Spacer(Modifier.height(4.dp))
+                    Text(a.title, fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold, color = Gold)
+                    Text(a.description, fontSize = 13.sp,
+                        color = Color.White.copy(alpha = 0.7f))
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onClose) { Text("Круто!") }
+        }
+    )
+}
+
+// ============================================================
+// DAILY CHALLENGE SCREEN
+// ============================================================
+
+@Composable
+fun DailyChallengeScreen(
+    progress: ProgressStore,
+    ads: AdsController,
+    onExit: () -> Unit
+) {
+    // Генерируем уровень с сидом по дате
+    val seed = progress.dailyChallengeSeed()
+    val rng = remember { Random(seed) }
+    val dailyLevel = remember {
+        val difficulty = listOf(Difficulty.NORMAL, Difficulty.HARD, Difficulty.SUPER_HARD).random(rng)
+        val goalType = listOf(GoalType.SCORE, GoalType.COLLECT_COLOR, GoalType.HEART).random(rng)
+        val types = 6 + rng.nextInt(2)
+        val moves = 22 + rng.nextInt(8)
+        val goalColor = if (goalType == GoalType.COLLECT_COLOR) rng.nextInt(types) else null
+        val goalCount = if (goalType == GoalType.COLLECT_COLOR) 20 + rng.nextInt(15) else 0
+        val heartCount = if (goalType == GoalType.HEART) 10 + rng.nextInt(8) else 0
+        LevelConfig(
+            id = 1000,
+            moves = moves,
+            types = types,
+            targetScore = 2000 + rng.nextInt(1500),
+            difficulty = difficulty,
+            rewardCoins = 50 + rng.nextInt(50),
+            goalType = goalType,
+            goalColor = goalColor,
+            goalCount = goalCount,
+            heartCount = heartCount
+        )
+    }
+
+    var completed by remember { mutableStateOf(false) }
+
+    GameScreen(
+        level = dailyLevel,
+        progress = progress,
+        ads = ads,
+        onExitToMap = onExit,
+        onNext = onExit,
+        onNewAchievements = {},
+        isDailyChallenge = true,
+        onDailyCompleted = {
+            if (!completed) {
+                progress.markDailyChallengeCompleted()
+                completed = true
+            }
+            onExit()
+        }
+    )
+}
+
+// ============================================================
 // GAME SCREEN
 // ============================================================
 
@@ -1505,9 +1963,12 @@ fun GameScreen(
     progress: ProgressStore,
     ads: AdsController,
     onExitToMap: () -> Unit,
-    onNext: () -> Unit
+    onNext: () -> Unit,
+    onNewAchievements: (List<Achievement>) -> Unit,
+    isDailyChallenge: Boolean = false,
+    onDailyCompleted: () -> Unit = {}
 ) {
-    val engine = remember { GameEngine(level) }
+    val engine = remember { GameEngine(level, isDailyChallenge = isDailyChallenge) }
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     var boosterToBuy by remember { mutableStateOf<BoosterType?>(null) }
@@ -1541,8 +2002,11 @@ fun GameScreen(
         ) {
             ChipButton("⏸") { showPause = true }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Уровень ${level.id}", style = MaterialTheme.typography.titleLarge,
-                    color = Color.White, fontWeight = FontWeight.Bold)
+                Text(
+                    if (isDailyChallenge) "⚔ Испытание дня" else "Уровень ${level.id}",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White, fontWeight = FontWeight.Bold
+                )
                 Text(level.difficulty.label, fontSize = 11.sp, color = Accent)
             }
             ChipButton("🪙 ${progress.coins}") { }
@@ -1645,9 +2109,37 @@ fun GameScreen(
 
     when (engine.phase) {
         GamePhase.WON -> {
-            LaunchedEffect(Unit) { progress.recordWin(level.id, engine.score, level.rewardCoins) }
-            WinDialog(level.rewardCoins, engine.score, level.targetScore,
-                hasNext = level.id < Levels.all.size, onNext = onNext, onMap = onExitToMap)
+            LaunchedEffect(Unit) {
+                // Учёт для достижений
+                if (engine.heartsThisSession > 0) progress.recordHeartsCollected(engine.heartsThisSession)
+                if (engine.iceBrokenThisSession > 0) progress.recordIceBroken(engine.iceBrokenThisSession)
+                repeat(engine.rainbowsCreatedThisSession) { progress.recordRainbowCreated() }
+                if (engine.maxCascadeThisSession > 0) progress.recordCascade(engine.maxCascadeThisSession)
+                if (!engine.usedBooster) progress.recordNoBoosterWin()
+
+                if (isDailyChallenge) {
+                    // Награда за испытание без записи в unlockedLevel
+                    progress.addCoins(level.rewardCoins)
+                } else {
+                    progress.recordWin(level.id, engine.score, level.rewardCoins)
+                }
+
+                val newAch = progress.checkAchievements()
+                if (newAch.isNotEmpty()) onNewAchievements(newAch)
+            }
+            WinDialog(
+                reward = level.rewardCoins,
+                score = engine.score,
+                target = level.targetScore,
+                hasNext = !isDailyChallenge && level.id < Levels.all.size,
+                onNext = {
+                    if (isDailyChallenge) onDailyCompleted() else onNext()
+                },
+                onMap = {
+                    if (isDailyChallenge) onDailyCompleted() else onExitToMap()
+                },
+                isDaily = isDailyChallenge
+            )
         }
         GamePhase.LOST -> {
             AlertDialog(
@@ -1749,7 +2241,15 @@ fun PauseDialog(level: LevelConfig, onResume: () -> Unit, onRetry: () -> Unit, o
 }
 
 @Composable
-fun WinDialog(reward: Int, score: Int, target: Int, hasNext: Boolean, onNext: () -> Unit, onMap: () -> Unit) {
+fun WinDialog(
+    reward: Int,
+    score: Int,
+    target: Int,
+    hasNext: Boolean,
+    onNext: () -> Unit,
+    onMap: () -> Unit,
+    isDaily: Boolean = false
+) {
     val stars = when {
         score >= target * 3 / 2 -> 3
         score >= target * 5 / 4 -> 2
@@ -1760,7 +2260,12 @@ fun WinDialog(reward: Int, score: Int, target: Int, hasNext: Boolean, onNext: ()
 
     AlertDialog(
         onDismissRequest = {},
-        title = { Text("Победа!", fontWeight = FontWeight.Bold) },
+        title = {
+            Text(
+                if (isDaily) "⚔ Испытание пройдено!" else "Победа!",
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
             Box(modifier = Modifier.fillMaxWidth()) {
                 ConfettiEffect()
