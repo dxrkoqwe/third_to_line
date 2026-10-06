@@ -288,7 +288,7 @@ fun GemTile(type: TileType, modifier: Modifier = Modifier, rainbow: Boolean = fa
 }
 
 // ============================================================
-// CHARGED OVERLAY — тонкое кольцо + искры, цвет не перекрыт
+// CHARGED OVERLAY
 // ============================================================
 
 @Composable
@@ -308,21 +308,18 @@ fun ChargedOverlay(modifier: Modifier = Modifier) {
         val cx = w / 2f; val cy = h / 2f
         val r = min(w, h) / 2f * 0.94f
 
-        // Мягкое внешнее свечение за пределами камня
         drawCircle(
             color = Color(0xFFFFC107).copy(alpha = 0.30f * pulse),
             radius = r * 1.06f,
             center = Offset(cx, cy),
             style = Stroke(width = w * 0.10f)
         )
-        // Тонкое золотое кольцо — цвет камня внутри полностью виден
         drawCircle(
             color = Color(0xFFFFC107).copy(alpha = 0.9f),
             radius = r,
             center = Offset(cx, cy),
             style = Stroke(width = w * 0.055f)
         )
-        // 4 искры по углам — явный признак «заряжен»
         val sparkOffset = r * 0.72f
         val sparkR = w * 0.055f
         val positions = listOf(
@@ -1720,14 +1717,11 @@ class GameEngine(
             if (cascadeLevel > maxCascadeThisSession) maxCascadeThisSession = cascadeLevel
             val multiplier = min(3f, 1f + (cascadeLevel - 1) * 0.5f)
 
-            // 5-в-ряд → радужный
             val rainbowAt = Board.findFiveInRow(grid)
             if (rainbowAt != null) rainbowsCreatedThisSession += 1
 
-            // 4-в-ряд (только если нет 5) → заряженный
             val chargedAt = if (rainbowAt == null) Board.findFourInRow(grid) else null
 
-            // Расширяем matches за счёт активации ранее заряженных
             val expandedMatches = rawMatches.toMutableSet()
             var chargedExplosionHappened = false
             for ((r, c) in rawMatches) {
@@ -1745,7 +1739,6 @@ class GameEngine(
             val effectiveChargedAt = if (chargedExplosionHappened) null else chargedAt
             if (effectiveChargedAt != null) chargedCreatedThisSession += 1
 
-            // Запоминаем типы ДО удаления
             val rainbowType = if (rainbowAt != null) grid[rainbowAt.first][rainbowAt.second].type else -1
             val chargedType = if (effectiveChargedAt != null)
                 grid[effectiveChargedAt.first][effectiveChargedAt.second].type else -1
@@ -1796,11 +1789,9 @@ class GameEngine(
             if (unlocks.isNotEmpty()) grid = Board.unlockCells(grid, unlocks)
             delay(240)
 
-            // Удаляем ВСЕ плитки матча — включая позиции будущих спецов
             grid = Board.dropAndRefill(grid, expandedMatches, level.types, ::nextId, rng)
             delay(280)
 
-            // Вставляем радужный ПОСЛЕ гравитации, с новым id
             if (rainbowAt != null && rainbowType >= 0) {
                 val g = grid.map { it.toMutableList() }.toMutableList()
                 val target = g[rainbowAt.first][rainbowAt.second]
@@ -1814,7 +1805,6 @@ class GameEngine(
                 }
             }
 
-            // Вставляем заряженный ПОСЛЕ гравитации
             if (effectiveChargedAt != null && chargedType >= 0) {
                 val g = grid.map { it.toMutableList() }.toMutableList()
                 val target = g[effectiveChargedAt.first][effectiveChargedAt.second]
@@ -1981,7 +1971,7 @@ enum class Screen { MAP, GAME, DAILY, ACHIEVEMENTS }
 fun AppRoot() {
     val context = LocalContext.current
     val progress = remember { ProgressStore(context) }
-    val ads: AdsController = remember { NoOpAdsController() }
+    val ads: AdsController = remember { YandexRewardedAdsController(context) }
     var screen by remember { mutableStateOf(Screen.MAP) }
     var currentLevelId by remember { mutableStateOf<Int?>(null) }
     var showDaily by remember { mutableStateOf(false) }
