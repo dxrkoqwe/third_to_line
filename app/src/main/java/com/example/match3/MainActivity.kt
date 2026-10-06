@@ -42,9 +42,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
@@ -103,6 +101,7 @@ val BgBottom = Color(0xFF2D1B4E)
 val CardBg = Color(0xFF33245C)
 val Accent = Color(0xFFB388FF)
 val Gold = Color(0xFFFFC107)
+val WallColor = Color(0xFF6D4C41)
 
 // ============================================================
 // ENTRY
@@ -158,6 +157,41 @@ fun StarsBackground() {
 }
 
 // ============================================================
+// SHAPES
+// ============================================================
+
+object Shapes {
+    val cross = listOf(
+        "..XXXX..", "..XXXX..", "XXXXXXXX", "XXXXXXXX",
+        "XXXXXXXX", "XXXXXXXX", "..XXXX..", "..XXXX.."
+    )
+    val diamond = listOf(
+        "...XX...", "..XXXX..", ".XXXXXX.", "XXXXXXXX",
+        "XXXXXXXX", ".XXXXXX.", "..XXXX..", "...XX..."
+    )
+    val hourglass = listOf(
+        "XXXXXXXX", "XXXXXXXX", ".XXXXXX.", "..XXXX..",
+        "..XXXX..", ".XXXXXX.", "XXXXXXXX", "XXXXXXXX"
+    )
+    val heart = listOf(
+        ".XX..XX.", "XXXXXXXX", "XXXXXXXX", "XXXXXXXX",
+        "XXXXXXXX", ".XXXXXX.", "..XXXX..", "...XX..."
+    )
+    val butterfly = listOf(
+        "XX....XX", "XXX..XXX", "XXXXXXXX", "XXXXXXXX",
+        "XXXXXXXX", "XXX..XXX", "XX....XX", "X......X"
+    )
+    val letterH = listOf(
+        "XX....XX", "XX....XX", "XX....XX", "XXXXXXXX",
+        "XXXXXXXX", "XX....XX", "XX....XX", "XX....XX"
+    )
+    val ring = listOf(
+        "XXXXXXXX", "X......X", "X.XXXX.X", "X.XXXX.X",
+        "X.XXXX.X", "X.XXXX.X", "X......X", "XXXXXXXX"
+    )
+}
+
+// ============================================================
 // GEMS
 // ============================================================
 
@@ -186,10 +220,15 @@ data class Tile(
     val matching: Boolean = false,
     val locked: Boolean = false,
     val stone: Boolean = false,
+    val wall: Boolean = false,
+    val void: Boolean = false,
     val hasHeart: Boolean = false,
-    val rainbow: Boolean = false
+    val rainbow: Boolean = false,
+    val charged: Boolean = false,
+    val bombTimer: Int = 0
 ) {
-    val isMovable: Boolean get() = !stone && !locked
+    val isBlocker: Boolean get() = stone || wall || void
+    val isMovable: Boolean get() = !stone && !locked && !wall && !void
 }
 
 fun buildPolygon(cx: Float, cy: Float, r: Float, sides: Int, rotationDeg: Float): Path {
@@ -249,6 +288,96 @@ fun GemTile(type: TileType, modifier: Modifier = Modifier, rainbow: Boolean = fa
 }
 
 // ============================================================
+// CHARGED OVERLAY — тонкое кольцо + искры, цвет не перекрыт
+// ============================================================
+
+@Composable
+fun ChargedOverlay(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "charged")
+    val pulse by transition.animateFloat(
+        initialValue = 0.4f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(700, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "chargedPulse"
+    )
+    Canvas(modifier = modifier) {
+        val w = size.width; val h = size.height
+        if (w <= 0f || h <= 0f) return@Canvas
+        val cx = w / 2f; val cy = h / 2f
+        val r = min(w, h) / 2f * 0.94f
+
+        // Мягкое внешнее свечение за пределами камня
+        drawCircle(
+            color = Color(0xFFFFC107).copy(alpha = 0.30f * pulse),
+            radius = r * 1.06f,
+            center = Offset(cx, cy),
+            style = Stroke(width = w * 0.10f)
+        )
+        // Тонкое золотое кольцо — цвет камня внутри полностью виден
+        drawCircle(
+            color = Color(0xFFFFC107).copy(alpha = 0.9f),
+            radius = r,
+            center = Offset(cx, cy),
+            style = Stroke(width = w * 0.055f)
+        )
+        // 4 искры по углам — явный признак «заряжен»
+        val sparkOffset = r * 0.72f
+        val sparkR = w * 0.055f
+        val positions = listOf(
+            Offset(cx - sparkOffset, cy - sparkOffset),
+            Offset(cx + sparkOffset, cy - sparkOffset),
+            Offset(cx - sparkOffset, cy + sparkOffset),
+            Offset(cx + sparkOffset, cy + sparkOffset)
+        )
+        for (p in positions) {
+            drawCircle(
+                color = Color(0xFFFFF176).copy(alpha = 0.95f),
+                radius = sparkR * (0.6f + 0.6f * pulse),
+                center = p
+            )
+            drawCircle(
+                color = Color.White.copy(alpha = 0.9f),
+                radius = sparkR * 0.4f * (0.6f + 0.6f * pulse),
+                center = p
+            )
+        }
+    }
+}
+
+// ============================================================
+// WALL
+// ============================================================
+
+@Composable
+fun WallTile(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width; val h = size.height
+        if (w <= 0f || h <= 0f) return@Canvas
+
+        drawRoundRect(
+            brush = Brush.verticalGradient(
+                listOf(Color(0xFF8D6E63), Color(0xFF3E2723)), 0f, h
+            ),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.08f)
+        )
+
+        val strokeW = w * 0.03f
+        val brickColor = Color(0xFF4E342E)
+        drawLine(brickColor, Offset(w * 0.5f, 0f), Offset(w * 0.5f, h * 0.5f), strokeW)
+        drawLine(brickColor, Offset(w * 0.25f, h * 0.5f), Offset(w * 0.25f, h), strokeW)
+        drawLine(brickColor, Offset(w * 0.75f, h * 0.5f), Offset(w * 0.75f, h), strokeW)
+        drawLine(brickColor, Offset(0f, h * 0.5f), Offset(w, h * 0.5f), strokeW)
+        drawRoundRect(
+            color = Color.Black.copy(alpha = 0.6f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.08f),
+            style = Stroke(width = w * 0.05f)
+        )
+    }
+}
+
+// ============================================================
 // HEART OVERLAY
 // ============================================================
 
@@ -258,16 +387,8 @@ fun buildHeartShape(cx: Float, cy: Float, size: Float): Path {
     val topY = cy - r * 0.7f
     val bottomY = cy + r * 0.9f
     path.moveTo(cx, bottomY)
-    path.cubicTo(
-        cx - r * 1.3f, cy + r * 0.2f,
-        cx - r * 1.0f, topY,
-        cx, cy - r * 0.15f
-    )
-    path.cubicTo(
-        cx + r * 1.0f, topY,
-        cx + r * 1.3f, cy + r * 0.2f,
-        cx, bottomY
-    )
+    path.cubicTo(cx - r * 1.3f, cy + r * 0.2f, cx - r * 1.0f, topY, cx, cy - r * 0.15f)
+    path.cubicTo(cx + r * 1.0f, topY, cx + r * 1.3f, cy + r * 0.2f, cx, bottomY)
     path.close()
     return path
 }
@@ -279,22 +400,47 @@ fun HeartOverlay(modifier: Modifier = Modifier) {
         if (w <= 0f || h <= 0f) return@Canvas
         val cx = w / 2f; val cy = h / 2f
         val s = min(w, h) * 0.55f
-
         val heartPath = buildHeartShape(cx, cy, s)
-
-        drawPath(
-            heartPath,
-            color = Color.White.copy(alpha = 0.95f),
-            style = Stroke(width = s * 0.18f, join = StrokeJoin.Round)
-        )
+        drawPath(heartPath, color = Color.White.copy(alpha = 0.95f),
+            style = Stroke(width = s * 0.18f, join = StrokeJoin.Round))
         drawPath(heartPath, brush = Brush.verticalGradient(
             colors = listOf(Color(0xFFFF5252), Color(0xFFC62828)),
-            startY = cy - s / 2f, endY = cy + s / 2f
-        ))
+            startY = cy - s / 2f, endY = cy + s / 2f))
+        drawCircle(Color.White.copy(alpha = 0.85f), radius = s * 0.09f,
+            center = Offset(cx - s * 0.18f, cy - s * 0.15f))
+    }
+}
+
+// ============================================================
+// BOMB OVERLAY
+// ============================================================
+
+@Composable
+fun BombOverlay(timer: Int, modifier: Modifier = Modifier) {
+    val urgent = timer <= 3
+    val pulseTransition = rememberInfiniteTransition(label = "bombPulse")
+    val pulseAlpha by pulseTransition.animateFloat(
+        initialValue = 0.4f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(400, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bombPulseVal"
+    )
+    Canvas(modifier = modifier) {
+        val w = size.width; val h = size.height
+        if (w <= 0f || h <= 0f) return@Canvas
+        val bgRadius = min(w, h) * 0.30f
+        val cx = w / 2f; val cy = h / 2f
+        if (urgent) {
+            drawCircle(Color(0xFFFF1744).copy(alpha = 0.5f * pulseAlpha),
+                radius = bgRadius * 1.25f, center = Offset(cx, cy))
+        }
+        drawCircle(Color(0xFF212121).copy(alpha = 0.85f), radius = bgRadius, center = Offset(cx, cy))
         drawCircle(
-            color = Color.White.copy(alpha = 0.85f),
-            radius = s * 0.09f,
-            center = Offset(cx - s * 0.18f, cy - s * 0.15f)
+            if (urgent) Color(0xFFFF1744) else Color(0xFFFFC107),
+            radius = bgRadius, center = Offset(cx, cy),
+            style = Stroke(width = w * 0.05f)
         )
     }
 }
@@ -310,14 +456,10 @@ fun StoneTile(modifier: Modifier = Modifier) {
         if (w <= 0f || h <= 0f) return@Canvas
         val pad = min(w, h) * 0.05f
         val path = Path().apply {
-            moveTo(pad * 1.5f, pad * 2f)
-            lineTo(w * 0.30f, pad)
-            lineTo(w * 0.72f, pad * 1.6f)
-            lineTo(w - pad, h * 0.30f)
-            lineTo(w - pad * 1.5f, h - pad * 1.5f)
-            lineTo(w * 0.42f, h - pad)
-            lineTo(pad, h * 0.75f)
-            close()
+            moveTo(pad * 1.5f, pad * 2f); lineTo(w * 0.30f, pad)
+            lineTo(w * 0.72f, pad * 1.6f); lineTo(w - pad, h * 0.30f)
+            lineTo(w - pad * 1.5f, h - pad * 1.5f); lineTo(w * 0.42f, h - pad)
+            lineTo(pad, h * 0.75f); close()
         }
         drawPath(path, color = Color.Black.copy(alpha = 0.5f), style = Stroke(width = w * 0.10f))
         drawPath(path, brush = Brush.verticalGradient(
@@ -328,12 +470,8 @@ fun StoneTile(modifier: Modifier = Modifier) {
             val py = pad + rng.nextFloat() * (h - pad * 2f)
             drawCircle(Color.White.copy(alpha = 0.18f), radius = w * 0.04f, center = Offset(px, py))
         }
-        drawLine(
-            color = Color.Black.copy(alpha = 0.35f),
-            start = Offset(w * 0.30f, h * 0.25f),
-            end = Offset(w * 0.60f, h * 0.75f),
-            strokeWidth = w * 0.02f
-        )
+        drawLine(Color.Black.copy(alpha = 0.35f),
+            Offset(w * 0.30f, h * 0.25f), Offset(w * 0.60f, h * 0.75f), w * 0.02f)
     }
 }
 
@@ -350,15 +488,10 @@ fun IceOverlay(layers: Int, modifier: Modifier = Modifier) {
         val crackCount = if (layers >= 2) 4 else 2
         val rng = Random(if (layers >= 2) 11 else 3)
         repeat(crackCount) {
-            val x1 = rng.nextFloat() * w
-            val y1 = rng.nextFloat() * h
+            val x1 = rng.nextFloat() * w; val y1 = rng.nextFloat() * h
             val x2 = (x1 + (rng.nextFloat() - 0.5f) * w * 0.7f).coerceIn(0f, w)
             val y2 = (y1 + (rng.nextFloat() - 0.5f) * h * 0.7f).coerceIn(0f, h)
-            drawLine(
-                color = Color.White.copy(alpha = 0.80f),
-                start = Offset(x1, y1), end = Offset(x2, y2),
-                strokeWidth = w * 0.03f
-            )
+            drawLine(Color.White.copy(alpha = 0.80f), Offset(x1, y1), Offset(x2, y2), w * 0.03f)
         }
         drawRoundRect(
             color = Color.White.copy(alpha = 0.90f),
@@ -373,27 +506,19 @@ fun LockOverlay(modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val w = size.width; val h = size.height
         if (w <= 0f || h <= 0f) return@Canvas
-        drawRoundRect(
-            color = Color.Black.copy(alpha = 0.35f),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.16f)
-        )
-        val bodyW = w * 0.42f
-        val bodyH = h * 0.30f
-        val bodyX = (w - bodyW) / 2f
-        val bodyY = h * 0.52f
-        drawRoundRect(
-            color = Color(0xFFFFC107),
+        drawRoundRect(Color.Black.copy(alpha = 0.35f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.16f))
+        val bodyW = w * 0.42f; val bodyH = h * 0.30f
+        val bodyX = (w - bodyW) / 2f; val bodyY = h * 0.52f
+        drawRoundRect(Color(0xFFFFC107),
             topLeft = Offset(bodyX, bodyY),
             size = androidx.compose.ui.geometry.Size(bodyW, bodyH),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.05f)
-        )
-        drawRoundRect(
-            color = Color(0xFF8D6E00),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.05f))
+        drawRoundRect(Color(0xFF8D6E00),
             topLeft = Offset(bodyX, bodyY),
             size = androidx.compose.ui.geometry.Size(bodyW, bodyH),
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.05f),
-            style = Stroke(width = w * 0.02f)
-        )
+            style = Stroke(width = w * 0.02f))
         val strokeW = w * 0.07f
         val arcLeft = bodyX + bodyW * 0.20f
         val arcRight = bodyX + bodyW * 0.80f
@@ -402,8 +527,7 @@ fun LockOverlay(modifier: Modifier = Modifier) {
         val path = Path().apply {
             moveTo(arcLeft, arcBottom)
             lineTo(arcLeft, (arcTop + arcBottom) / 2f)
-            quadraticBezierTo((arcLeft + arcRight) / 2f, arcTop,
-                arcRight, (arcTop + arcBottom) / 2f)
+            quadraticBezierTo((arcLeft + arcRight) / 2f, arcTop, arcRight, (arcTop + arcBottom) / 2f)
             lineTo(arcRight, arcBottom)
         }
         drawPath(path, color = Color(0xFFFFC107),
@@ -439,6 +563,7 @@ object Board {
         types: Int,
         obstacles: List<String>,
         heartCount: Int,
+        shape: List<String>,
         nextId: () -> Int,
         rng: Random = Random.Default
     ): LevelState {
@@ -446,8 +571,11 @@ object Board {
         var safety = 0
         do {
             val base = generate(types, nextId, rng)
-            state = if (obstacles.isEmpty()) LevelState(base, emptyIce())
-            else applyObstacles(base, obstacles)
+            state = if (obstacles.isEmpty() && shape.isEmpty()) {
+                LevelState(base, emptyIce())
+            } else {
+                applyObstacles(base, obstacles, shape)
+            }
             if (heartCount > 0) {
                 val withHearts = plantHearts(state.grid, heartCount, state.iceGrid, rng)
                 state = LevelState(withHearts, state.iceGrid)
@@ -459,13 +587,23 @@ object Board {
 
     fun emptyIce(): List<List<Int>> = List(SIZE) { List(SIZE) { 0 } }
 
-    private fun applyObstacles(grid: List<List<Tile>>, obstacles: List<String>): LevelState {
+    private fun applyObstacles(
+        grid: List<List<Tile>>,
+        obstacles: List<String>,
+        shape: List<String>
+    ): LevelState {
         val ice = MutableList(SIZE) { MutableList(SIZE) { 0 } }
         val newGrid = grid.mapIndexed { r, row ->
             row.mapIndexed { c, tile ->
+                val shapeChar = shape.getOrNull(r)?.getOrNull(c) ?: '.'
+                if (shapeChar == 'X') {
+                    return@mapIndexed tile.copy(type = -1, void = true)
+                }
                 when (obstacles.getOrNull(r)?.getOrNull(c) ?: '.') {
                     '#' -> tile.copy(type = -1, stone = true)
                     'L' -> tile.copy(locked = true)
+                    'W' -> tile.copy(type = -1, wall = true)
+                    'B' -> tile.copy(bombTimer = 12)
                     '1' -> { ice[r][c] = 1; tile }
                     '2' -> { ice[r][c] = 2; tile }
                     else -> tile
@@ -484,7 +622,7 @@ object Board {
         val candidates = mutableListOf<Pair<Int, Int>>()
         for (r in 0 until SIZE) for (c in 0 until SIZE) {
             val t = grid[r][c]
-            if (!t.stone && !t.locked && iceGrid[r][c] == 0) candidates.add(r to c)
+            if (!t.stone && !t.locked && !t.wall && !t.void && iceGrid[r][c] == 0) candidates.add(r to c)
         }
         candidates.shuffle(rng)
         val chosen = candidates.take(count).toSet()
@@ -503,10 +641,10 @@ object Board {
             var c = 0
             while (c < SIZE) {
                 val tile = grid[r][c]
-                if (tile.stone) { c++; continue }
+                if (tile.isBlocker) { c++; continue }
                 val v = tile.type
                 var c2 = c
-                while (c2 < SIZE && !grid[r][c2].stone && grid[r][c2].type == v) c2++
+                while (c2 < SIZE && !grid[r][c2].isBlocker && grid[r][c2].type == v) c2++
                 if (c2 - c >= 3) for (k in c until c2) matches.add(r to k)
                 c = c2
             }
@@ -515,10 +653,10 @@ object Board {
             var r = 0
             while (r < SIZE) {
                 val tile = grid[r][c]
-                if (tile.stone) { r++; continue }
+                if (tile.isBlocker) { r++; continue }
                 val v = tile.type
                 var r2 = r
-                while (r2 < SIZE && !grid[r2][c].stone && grid[r2][c].type == v) r2++
+                while (r2 < SIZE && !grid[r2][c].isBlocker && grid[r2][c].type == v) r2++
                 if (r2 - r >= 3) for (k in r until r2) matches.add(k to c)
                 r = r2
             }
@@ -531,10 +669,10 @@ object Board {
             var c = 0
             while (c < SIZE) {
                 val tile = grid[r][c]
-                if (tile.stone) { c++; continue }
+                if (tile.isBlocker) { c++; continue }
                 val v = tile.type
                 var c2 = c
-                while (c2 < SIZE && !grid[r][c2].stone && grid[r][c2].type == v) c2++
+                while (c2 < SIZE && !grid[r][c2].isBlocker && grid[r][c2].type == v) c2++
                 if (c2 - c >= 5) return r to ((c + c2 - 1) / 2)
                 c = c2
             }
@@ -543,11 +681,47 @@ object Board {
             var r = 0
             while (r < SIZE) {
                 val tile = grid[r][c]
-                if (tile.stone) { r++; continue }
+                if (tile.isBlocker) { r++; continue }
                 val v = tile.type
                 var r2 = r
-                while (r2 < SIZE && !grid[r2][c].stone && grid[r2][c].type == v) r2++
+                while (r2 < SIZE && !grid[r2][c].isBlocker && grid[r2][c].type == v) r2++
                 if (r2 - r >= 5) return ((r + r2 - 1) / 2) to c
+                r = r2
+            }
+        }
+        return null
+    }
+
+    fun findFourInRow(grid: List<List<Tile>>): Pair<Int, Int>? {
+        for (r in 0 until SIZE) {
+            var c = 0
+            while (c < SIZE) {
+                val tile = grid[r][c]
+                if (tile.isBlocker) { c++; continue }
+                val v = tile.type
+                var c2 = c
+                while (c2 < SIZE && !grid[r][c2].isBlocker && grid[r][c2].type == v) c2++
+                if (c2 - c == 4) {
+                    val leftOk = c == 0 || grid[r][c - 1].isBlocker || grid[r][c - 1].type != v
+                    val rightOk = c2 == SIZE || grid[r][c2].isBlocker || grid[r][c2].type != v
+                    if (leftOk && rightOk) return r to ((c + c2 - 1) / 2)
+                }
+                c = c2
+            }
+        }
+        for (c in 0 until SIZE) {
+            var r = 0
+            while (r < SIZE) {
+                val tile = grid[r][c]
+                if (tile.isBlocker) { r++; continue }
+                val v = tile.type
+                var r2 = r
+                while (r2 < SIZE && !grid[r2][c].isBlocker && grid[r2][c].type == v) r2++
+                if (r2 - r == 4) {
+                    val topOk = r == 0 || grid[r - 1][c].isBlocker || grid[r - 1][c].type != v
+                    val bottomOk = r2 == SIZE || grid[r2][c].isBlocker || grid[r2][c].type != v
+                    if (topOk && bottomOk) return ((r + r2 - 1) / 2) to c
+                }
                 r = r2
             }
         }
@@ -661,13 +835,16 @@ object Board {
     ): List<List<Tile>> {
         val g: MutableList<MutableList<Tile?>> =
             grid.map { it.toMutableList<Tile?>() }.toMutableList()
-        for ((r, c) in matches) g[r][c] = null
+        for ((r, c) in matches) {
+            val t = g[r][c]
+            if (t != null && !t.wall && !t.void) g[r][c] = null
+        }
         for (c in 0 until SIZE) {
             var segEnd = SIZE - 1
             var r = SIZE - 1
             while (r >= -1) {
-                val isStone = r >= 0 && g[r][c]?.stone == true
-                if (r < 0 || isStone) {
+                val isBlock = r >= 0 && (g[r][c]?.stone == true || g[r][c]?.wall == true || g[r][c]?.void == true)
+                if (r < 0 || isBlock) {
                     dropSegment(g, c, r + 1, segEnd, types, nextId, rng)
                     segEnd = r - 1
                 }
@@ -686,7 +863,7 @@ object Board {
         val existing = mutableListOf<Tile>()
         for (r in from..to) {
             val t = g[r][c]
-            if (t != null && !t.stone) existing.add(t)
+            if (t != null && !t.isBlocker) existing.add(t)
         }
         var write = to
         for (i in existing.indices.reversed()) {
@@ -710,7 +887,7 @@ object Board {
         for (r in 0 until SIZE) {
             for (c in 0 until SIZE) {
                 val t = grid[r][c]
-                if (!t.stone && !t.rainbow) {
+                if (!t.isBlocker && !t.rainbow) {
                     movable.add(r to c)
                     colors.add(t.type)
                 }
@@ -727,7 +904,7 @@ object Board {
 }
 
 // ============================================================
-// LEVELS — 60 уровней
+// LEVELS
 // ============================================================
 
 enum class Difficulty(val label: String) {
@@ -748,13 +925,13 @@ data class LevelConfig(
     val goalCount: Int = 0,
     val heartCount: Int = 0,
     val obstacles: List<String> = emptyList(),
+    val shape: List<String> = emptyList(),
     val continueCostCoins: Int = 50,
     val continueExtraMoves: Int = 5
 )
 
 object Levels {
     val all: List<LevelConfig> = listOf(
-        // === МИР 1: обучение ===
         LevelConfig(1, 30, 5, 500, Difficulty.EASY, 10),
         LevelConfig(2, 30, 5, 800, Difficulty.EASY, 10),
         LevelConfig(3, 30, 5, 0, Difficulty.EASY, 12,
@@ -770,7 +947,6 @@ object Levels {
             goalType = GoalType.HEART, heartCount = 10),
         LevelConfig(10, 30, 6, 1600, Difficulty.NORMAL, 25),
 
-        // === МИР 2: первые препятствия ===
         LevelConfig(11, 30, 6, 1300, Difficulty.NORMAL, 22,
             obstacles = listOf(
                 "........", "........", "..#.....", "........",
@@ -805,7 +981,6 @@ object Levels {
             goalType = GoalType.HEART, heartCount = 12),
         LevelConfig(20, 30, 7, 2200, Difficulty.HARD, 35),
 
-        // === МИР 3: комбинации ===
         LevelConfig(21, 30, 7, 0, Difficulty.HARD, 30,
             goalType = GoalType.BREAK_ICE,
             obstacles = listOf(
@@ -845,7 +1020,6 @@ object Levels {
         LevelConfig(30, 32, 7, 0, Difficulty.SUPER_HARD, 48,
             goalType = GoalType.COLLECT_COLOR, goalColor = 6, goalCount = 32),
 
-        // === МИР 4: финал ===
         LevelConfig(31, 32, 7, 3600, Difficulty.SUPER_HARD, 50,
             obstacles = listOf(
                 "##....##", "........", "........", "..L..L..",
@@ -887,16 +1061,10 @@ object Levels {
                 "#......#", ".222222.", "..#..#..", "..2LL2..",
                 "..2LL2..", "..#..#..", ".222222.", "#......#")),
 
-        // === МИР 5: после финала ===
         LevelConfig(41, 32, 7, 5500, Difficulty.SUPER_HARD, 105,
-            obstacles = listOf(
-                "##....##", ".2....2.", "..2222..", "........",
-                "........", "..2222..", ".2....2.", "##....##")),
+            shape = Shapes.cross),
         LevelConfig(42, 34, 7, 0, Difficulty.SUPER_HARD, 110,
-            goalType = GoalType.COLLECT_COLOR, goalColor = 3, goalCount = 35,
-            obstacles = listOf(
-                "........", "L222222L", "........", "..2222..",
-                "..2222..", "........", "L222222L", "........")),
+            goalType = GoalType.COLLECT_COLOR, goalColor = 3, goalCount = 35),
         LevelConfig(43, 34, 7, 0, Difficulty.SUPER_HARD, 115,
             goalType = GoalType.BREAK_ICE,
             obstacles = listOf(
@@ -908,11 +1076,8 @@ object Levels {
                 "..2222..", ".2....2.", "..#..#..", "........")),
         LevelConfig(45, 36, 7, 0, Difficulty.SUPER_HARD, 125,
             goalType = GoalType.HEART, heartCount = 22,
-            obstacles = listOf(
-                "L......L", ".222222.", "..2..2..", "..2..2..",
-                "..2..2..", "..2..2..", ".222222.", "L......L")),
+            shape = Shapes.diamond),
 
-        // === МИР 6: хардкор ===
         LevelConfig(46, 32, 7, 6500, Difficulty.SUPER_HARD, 130,
             obstacles = listOf(
                 "#......#", ".222222.", "..#..#..", "..2LL2..",
@@ -937,8 +1102,8 @@ object Levels {
                 "#......#", ".222222.", "..#..#..", "..2LL2..",
                 "..2LL2..", "..#..#..", ".222222.", "#......#")),
 
-        // === МИР 7: марафон ===
-        LevelConfig(51, 34, 7, 7500, Difficulty.SUPER_HARD, 100),
+        LevelConfig(51, 34, 7, 7500, Difficulty.SUPER_HARD, 100,
+            shape = Shapes.hourglass),
         LevelConfig(52, 34, 7, 0, Difficulty.SUPER_HARD, 110,
             goalType = GoalType.COLLECT_COLOR, goalColor = 0, goalCount = 40),
         LevelConfig(53, 34, 7, 0, Difficulty.SUPER_HARD, 120,
@@ -948,9 +1113,8 @@ object Levels {
                 "2.2..2.2", "2.2222.2", "2......2", "22222222")),
         LevelConfig(54, 36, 7, 8000, Difficulty.SUPER_HARD, 130),
         LevelConfig(55, 36, 7, 0, Difficulty.SUPER_HARD, 140,
-            goalType = GoalType.HEART, heartCount = 24),
-
-        // === МИР 8: финальный ===
+            goalType = GoalType.HEART, heartCount = 24,
+            shape = Shapes.heart),
         LevelConfig(56, 34, 7, 8500, Difficulty.SUPER_HARD, 150,
             obstacles = listOf(
                 "L......L", "2222222.", "........", "..2..2..",
@@ -967,7 +1131,195 @@ object Levels {
             goalType = GoalType.HEART, heartCount = 30,
             obstacles = listOf(
                 "#222222#", "22222222", "22LLLL22", "22LLLL22",
-                "22LLLL22", "22LLLL22", "22222222", "#222222#"))
+                "22LLLL22", "22LLLL22", "22222222", "#222222#")),
+
+        LevelConfig(61, 30, 7, 9500, Difficulty.SUPER_HARD, 150,
+            shape = Shapes.butterfly),
+        LevelConfig(62, 30, 7, 0, Difficulty.SUPER_HARD, 155,
+            goalType = GoalType.COLLECT_COLOR, goalColor = 0, goalCount = 35,
+            obstacles = listOf(
+                "........", "..W..W..", "........", "........",
+                "........", "..W..W..", "........", "........")),
+        LevelConfig(63, 30, 7, 0, Difficulty.SUPER_HARD, 160,
+            goalType = GoalType.BREAK_ICE,
+            obstacles = listOf(
+                "W......W", "........", "..1111..", "..1111..",
+                "..1111..", "..1111..", "........", "W......W")),
+        LevelConfig(64, 32, 7, 10000, Difficulty.SUPER_HARD, 165,
+            obstacles = listOf(
+                "........", ".W....W.", "........", "...WW...",
+                "...WW...", "........", ".W....W.", "........")),
+        LevelConfig(65, 32, 7, 0, Difficulty.SUPER_HARD, 170,
+            goalType = GoalType.HEART, heartCount = 20,
+            shape = Shapes.letterH),
+        LevelConfig(66, 32, 7, 10500, Difficulty.SUPER_HARD, 175,
+            obstacles = listOf(
+                "........", "WWWW....", "........", "....WWWW",
+                "WWWW....", "........", "....WWWW", "........")),
+        LevelConfig(67, 32, 7, 0, Difficulty.SUPER_HARD, 180,
+            goalType = GoalType.COLLECT_COLOR, goalColor = 2, goalCount = 40,
+            obstacles = listOf(
+                "W.W.W.W.", "........", "W.W.W.W.", "........",
+                "........", "W.W.W.W.", "........", "W.W.W.W.")),
+        LevelConfig(68, 34, 7, 0, Difficulty.SUPER_HARD, 185,
+            goalType = GoalType.BREAK_ICE,
+            obstacles = listOf(
+                "W......W", "W222222W", "W222222W", "........",
+                "........", "W222222W", "W222222W", "W......W")),
+        LevelConfig(69, 34, 7, 11000, Difficulty.SUPER_HARD, 190,
+            obstacles = listOf(
+                "........", ".WWWWWW.", "........", "........",
+                "........", "........", ".WWWWWW.", "........")),
+        LevelConfig(70, 40, 7, 0, Difficulty.SUPER_HARD, 250,
+            goalType = GoalType.HEART, heartCount = 24,
+            obstacles = listOf(
+                "W......W", "........", ".WW..WW.", "........",
+                "........", ".WW..WW.", "........", "W......W")),
+
+        LevelConfig(71, 30, 7, 12000, Difficulty.SUPER_HARD, 200,
+            shape = Shapes.ring),
+        LevelConfig(72, 30, 7, 0, Difficulty.SUPER_HARD, 210,
+            goalType = GoalType.COLLECT_COLOR, goalColor = 1, goalCount = 40,
+            obstacles = listOf(
+                "..B..B..", "........", "........", "........",
+                "........", "........", "........", "..B..B..")),
+        LevelConfig(73, 32, 7, 0, Difficulty.SUPER_HARD, 215,
+            goalType = GoalType.BREAK_ICE,
+            obstacles = listOf(
+                "........", ".111111.", "........", "..B..B..",
+                "..B..B..", "........", ".111111.", "........")),
+        LevelConfig(74, 32, 7, 13000, Difficulty.SUPER_HARD, 220,
+            obstacles = listOf(
+                "B......B", "........", "........", "...BB...",
+                "...BB...", "........", "........", "B......B")),
+        LevelConfig(75, 32, 7, 0, Difficulty.SUPER_HARD, 225,
+            goalType = GoalType.HEART, heartCount = 22,
+            shape = Shapes.cross,
+            obstacles = listOf(
+                "........", "........", "........", "...BB...",
+                "...BB...", "........", "........", "........")),
+        LevelConfig(76, 34, 7, 14000, Difficulty.SUPER_HARD, 230,
+            obstacles = listOf(
+                "B......B", ".222222.", "........", "..BBBB..",
+                "..BBBB..", "........", ".222222.", "B......B")),
+        LevelConfig(77, 34, 7, 0, Difficulty.SUPER_HARD, 235,
+            goalType = GoalType.COLLECT_COLOR, goalColor = 4, goalCount = 45,
+            obstacles = listOf(
+                "..B..B..", "........", "..B..B..", "........",
+                "........", "..B..B..", "........", "..B..B..")),
+        LevelConfig(78, 34, 7, 0, Difficulty.SUPER_HARD, 240,
+            goalType = GoalType.BREAK_ICE,
+            obstacles = listOf(
+                "22222222", "2B....B2", "2......2", "2......2",
+                "2......2", "2......2", "2B....B2", "22222222")),
+        LevelConfig(79, 36, 7, 15000, Difficulty.SUPER_HARD, 250,
+            obstacles = listOf(
+                "........", "........", "B.B..B.B", "........",
+                "........", "B.B..B.B", "........", "........")),
+        LevelConfig(80, 45, 7, 0, Difficulty.SUPER_HARD, 350,
+            goalType = GoalType.HEART, heartCount = 26,
+            obstacles = listOf(
+                "B......B", ".222222.", "..B..B..", "..2222..",
+                "..2222..", "..B..B..", ".222222.", "B......B")),
+
+        LevelConfig(81, 32, 7, 17000, Difficulty.SUPER_HARD, 300,
+            shape = Shapes.diamond,
+            obstacles = listOf(
+                "........", "........", "..B..B..", "........",
+                "........", "..B..B..", "........", "........")),
+        LevelConfig(82, 32, 7, 0, Difficulty.SUPER_HARD, 310,
+            goalType = GoalType.COLLECT_COLOR, goalColor = 0, goalCount = 50,
+            obstacles = listOf(
+                "W.W.W.W.", ".B.B.B.B", "........", "........",
+                "........", "........", "B.B.B.B.", ".W.W.W.W")),
+        LevelConfig(83, 32, 7, 0, Difficulty.SUPER_HARD, 320,
+            goalType = GoalType.BREAK_ICE,
+            obstacles = listOf(
+                "WWWW....", "B2222...", "W2222...", "........",
+                "........", "..2222..", "...2222B", "....WWWW")),
+        LevelConfig(84, 34, 7, 18000, Difficulty.SUPER_HARD, 330,
+            obstacles = listOf(
+                "W..BB..W", "........", "...WW...", "........",
+                "........", "...WW...", "........", "W..BB..W")),
+        LevelConfig(85, 34, 7, 0, Difficulty.SUPER_HARD, 340,
+            goalType = GoalType.HEART, heartCount = 24,
+            shape = Shapes.hourglass,
+            obstacles = listOf(
+                "........", "........", "........", "..B..B..",
+                "..B..B..", "........", "........", "........")),
+        LevelConfig(86, 36, 7, 19000, Difficulty.SUPER_HARD, 350,
+            obstacles = listOf(
+                "WB....BW", "........", "..WWWW..", "..B..B..",
+                "..B..B..", "..WWWW..", "........", "WB....BW")),
+        LevelConfig(87, 36, 7, 0, Difficulty.SUPER_HARD, 360,
+            goalType = GoalType.COLLECT_COLOR, goalColor = 6, goalCount = 55,
+            obstacles = listOf(
+                "..W..W..", ".B.WW.B.", "..W..W..", "........",
+                "........", "..W..W..", ".B.WW.B.", "..W..W..")),
+        LevelConfig(88, 36, 7, 0, Difficulty.SUPER_HARD, 370,
+            goalType = GoalType.BREAK_ICE,
+            obstacles = listOf(
+                "WWW..WWW", "W22BB22W", "W......W", "........",
+                "........", "W......W", "W22BB22W", "WWW..WWW")),
+        LevelConfig(89, 38, 7, 20000, Difficulty.SUPER_HARD, 400,
+            obstacles = listOf(
+                "WBW..WBW", ".W....W.", "..B..B..", "........",
+                "........", "..B..B..", ".W....W.", "WBW..WBW")),
+        LevelConfig(90, 50, 7, 0, Difficulty.SUPER_HARD, 500,
+            goalType = GoalType.HEART, heartCount = 28,
+            obstacles = listOf(
+                "WBBBBBBW", "B......B", "B.WWWW.B", "B.W..W.B",
+                "B.W..W.B", "B.WWWW.B", "B......B", "WBBBBBBW")),
+
+        LevelConfig(91, 32, 7, 22000, Difficulty.SUPER_HARD, 450,
+            shape = Shapes.heart,
+            obstacles = listOf(
+                "L......L", "........", "........", "........",
+                "........", "........", "........", "........")),
+        LevelConfig(92, 34, 7, 0, Difficulty.SUPER_HARD, 460,
+            goalType = GoalType.COLLECT_COLOR, goalColor = 3, goalCount = 60,
+            obstacles = listOf(
+                "W.B..B.W", ".WW..WW.", "........", "..BBBB..",
+                "..BBBB..", "........", ".WW..WW.", "W.B..B.W")),
+        LevelConfig(93, 34, 7, 0, Difficulty.SUPER_HARD, 470,
+            goalType = GoalType.BREAK_ICE,
+            obstacles = listOf(
+                "W2W2W2W2", "22222222", "W2B22B2W", "22222222",
+                "22222222", "W2B22B2W", "22222222", "W2W2W2W2")),
+        LevelConfig(94, 36, 7, 24000, Difficulty.SUPER_HARD, 480,
+            obstacles = listOf(
+                "B.W..W.B", ".B.WW.B.", "..B..B..", "W......W",
+                "W......W", "..B..B..", ".B.WW.B.", "B.W..W.B")),
+        LevelConfig(95, 36, 7, 0, Difficulty.SUPER_HARD, 490,
+            goalType = GoalType.HEART, heartCount = 26,
+            shape = Shapes.butterfly,
+            obstacles = listOf(
+                "........", "........", "..B.B...", "........",
+                "........", "...B.B..", "........", "........")),
+        LevelConfig(96, 36, 7, 26000, Difficulty.SUPER_HARD, 500,
+            obstacles = listOf(
+                "WBW..WBW", "BBB..BBB", "..W..W..", "..W..W..",
+                "..W..W..", "..W..W..", "BBB..BBB", "WBW..WBW")),
+        LevelConfig(97, 38, 7, 0, Difficulty.SUPER_HARD, 510,
+            goalType = GoalType.COLLECT_COLOR, goalColor = 5, goalCount = 65,
+            obstacles = listOf(
+                "WWWWWWWW", "W......W", "WB.BB.BW", "W.B..B.W",
+                "W.B..B.W", "WB.BB.BW", "W......W", "WWWWWWWW")),
+        LevelConfig(98, 36, 7, 0, Difficulty.SUPER_HARD, 520,
+            goalType = GoalType.BREAK_ICE,
+            obstacles = listOf(
+                "W222222W", "2W2222W2", "22W22W22", "222WW222",
+                "222WW222", "22W22W22", "2W2222W2", "W222222W")),
+        LevelConfig(99, 38, 7, 28000, Difficulty.SUPER_HARD, 550,
+            shape = Shapes.letterH,
+            obstacles = listOf(
+                "B......B", "........", "........", "..WWWW..",
+                "..WWWW..", "........", "........", "B......B")),
+        LevelConfig(100, 55, 7, 0, Difficulty.SUPER_HARD, 1000,
+            goalType = GoalType.HEART, heartCount = 32,
+            obstacles = listOf(
+                "WWBBBBWW", "W222222W", "B2.WW.2B", "B2.WW.2B",
+                "B2.WW.2B", "B2.WW.2B", "W222222W", "WWBBBBWW"))
     )
 }
 
@@ -990,13 +1342,17 @@ object Achievements {
         Achievement(3, "Опытный", "Пройди 15 уровней", 15, "⭐"),
         Achievement(4, "Ветеран", "Пройди 30 уровней", 30, "🏅"),
         Achievement(5, "Мастер", "Пройди 50 уровней", 50, "👑"),
-        Achievement(6, "Богач", "Накопи 500 монет за всё время", 500, "💰"),
-        Achievement(7, "Миллионер", "Накопи 2000 монет за всё время", 2000, "💎"),
-        Achievement(8, "Сердцеед", "Собери 50 сердечек", 50, "❤"),
-        Achievement(9, "Ледокол", "Разбей 100 льда", 100, "❄"),
-        Achievement(10, "Радужный мастер", "Создай 10 радужных камней", 10, "🌈"),
-        Achievement(11, "Комбо", "Сделай каскад ×3 (5+ матчей подряд)", 3, "⚡"),
-        Achievement(12, "Без бустеров", "Пройди 10 уровней без бустеров", 10, "🚫")
+        Achievement(6, "Легенда", "Пройди 100 уровней", 100, "🌟"),
+        Achievement(7, "Богач", "Накопи 500 монет за всё время", 500, "💰"),
+        Achievement(8, "Миллионер", "Накопи 2000 монет за всё время", 2000, "💎"),
+        Achievement(9, "Сердцеед", "Собери 50 сердечек", 50, "❤"),
+        Achievement(10, "Ледокол", "Разбей 100 льда", 100, "❄"),
+        Achievement(11, "Радужный мастер", "Создай 10 радужных камней", 10, "🌈"),
+        Achievement(12, "Комбо", "Сделай каскад ×3", 3, "⚡"),
+        Achievement(13, "Без бустеров", "Пройди 10 уровней без бустеров", 10, "🚫"),
+        Achievement(14, "Разрушитель стен", "Уничтожь 100 льда и камней", 100, "🧱"),
+        Achievement(15, "Сапёр", "Пройди 5 уровней с бомбами", 5, "💣"),
+        Achievement(16, "Подрывник", "Создай 15 заряженных самоцветов", 15, "💥")
     )
 }
 
@@ -1012,7 +1368,6 @@ class ProgressStore(context: Context) {
     var lastDailyBonusTime by mutableStateOf(prefs.getLong("dailyTime", 0L))
     var dailyBonusStreak by mutableIntStateOf(prefs.getInt("dailyStreak", 0))
 
-    // Достижения — прогресс по каждому
     var totalWins by mutableIntStateOf(prefs.getInt("totalWins", 0))
     var totalCoinsEarned by mutableIntStateOf(prefs.getInt("totalCoinsEarned", 0))
     var totalHeartsCollected by mutableIntStateOf(prefs.getInt("totalHearts", 0))
@@ -1020,9 +1375,10 @@ class ProgressStore(context: Context) {
     var totalRainbows by mutableIntStateOf(prefs.getInt("totalRainbows", 0))
     var bestCascade by mutableIntStateOf(prefs.getInt("bestCascade", 0))
     var noBoosterWins by mutableIntStateOf(prefs.getInt("noBoosterWins", 0))
+    var bombLevelsBeaten by mutableIntStateOf(prefs.getInt("bombLevelsBeaten", 0))
+    var totalCharged by mutableIntStateOf(prefs.getInt("totalCharged", 0))
     var unlockedAchievements by mutableStateOf(loadAchievements())
 
-    // Испытание дня
     var lastDailyChallengeDate by mutableStateOf(prefs.getString("dailyChallengeDate", "") ?: "")
 
     private fun loadScores(): Map<Int, Int> {
@@ -1041,12 +1397,13 @@ class ProgressStore(context: Context) {
         return s.split(",").filter { it.isNotBlank() }.mapNotNull { it.toIntOrNull() }.toSet()
     }
 
-    fun recordWin(levelId: Int, score: Int, rewardCoins: Int) {
+    fun recordWin(levelId: Int, score: Int, rewardCoins: Int, hasBombs: Boolean = false) {
         val prev = bestScores[levelId] ?: 0
         if (score > prev) bestScores = bestScores + (levelId to score)
         coins += rewardCoins
         totalCoinsEarned += rewardCoins
         totalWins += 1
+        if (hasBombs) bombLevelsBeaten += 1
         if (levelId + 1 > unlockedLevel) unlockedLevel = levelId + 1
         save()
     }
@@ -1086,7 +1443,6 @@ class ProgressStore(context: Context) {
         return amount
     }
 
-    // === Ежедневное испытание ===
     fun todayDateKey(): String {
         val cal = Calendar.getInstance()
         return "%04d-%02d-%02d".format(
@@ -1110,7 +1466,6 @@ class ProgressStore(context: Context) {
                 cal.get(Calendar.DAY_OF_MONTH)
     }
 
-    // === Достижения ===
     fun checkAchievements(): List<Achievement> {
         val newlyUnlocked = mutableListOf<Achievement>()
         for (a in Achievements.all) {
@@ -1126,19 +1481,22 @@ class ProgressStore(context: Context) {
     }
 
     fun progressFor(achievementId: Int): Int = when (achievementId) {
-        1, 2, 3, 4, 5 -> totalWins
-        6, 7 -> totalCoinsEarned
-        8 -> totalHeartsCollected
-        9 -> totalIceBroken
-        10 -> totalRainbows
-        11 -> bestCascade
-        12 -> noBoosterWins
+        1, 2, 3, 4, 5, 6 -> totalWins
+        7, 8 -> totalCoinsEarned
+        9 -> totalHeartsCollected
+        10, 14 -> totalIceBroken
+        11 -> totalRainbows
+        12 -> bestCascade
+        13 -> noBoosterWins
+        15 -> bombLevelsBeaten
+        16 -> totalCharged
         else -> 0
     }
 
     fun recordHeartsCollected(n: Int) { totalHeartsCollected += n; save() }
     fun recordIceBroken(n: Int) { totalIceBroken += n; save() }
     fun recordRainbowCreated() { totalRainbows += 1; save() }
+    fun recordChargedCreated() { totalCharged += 1; save() }
     fun recordCascade(level: Int) {
         if (level > bestCascade) { bestCascade = level; save() }
     }
@@ -1160,6 +1518,8 @@ class ProgressStore(context: Context) {
             .putInt("totalRainbows", totalRainbows)
             .putInt("bestCascade", bestCascade)
             .putInt("noBoosterWins", noBoosterWins)
+            .putInt("bombLevelsBeaten", bombLevelsBeaten)
+            .putInt("totalCharged", totalCharged)
             .putString("achievements", achStr)
             .putString("dailyChallengeDate", lastDailyChallengeDate)
             .apply()
@@ -1203,7 +1563,7 @@ class GameEngine(
     private fun nextId(): Int = ++idCounter
 
     private val initial: LevelState = Board.generateWithObstacles(
-        level.types, level.obstacles, level.heartCount, ::nextId, rng
+        level.types, level.obstacles, level.heartCount, level.shape, ::nextId, rng
     )
 
     var grid by mutableStateOf(initial.grid)
@@ -1217,6 +1577,7 @@ class GameEngine(
     var goalProgress by mutableIntStateOf(0)
         private set
     val totalIceCount: Int = Board.totalIce(initial.iceGrid)
+    val hasBombs: Boolean = level.obstacles.any { it.contains('B') }
     var selected by mutableStateOf<Pair<Int, Int>?>(null)
         private set
     var phase by mutableStateOf(GamePhase.PLAYING)
@@ -1226,12 +1587,13 @@ class GameEngine(
     var activeBooster by mutableStateOf<BoosterType?>(null)
         private set
 
-    // Для достижений
     var heartsThisSession by mutableIntStateOf(0)
         private set
     var iceBrokenThisSession by mutableIntStateOf(0)
         private set
     var rainbowsCreatedThisSession by mutableIntStateOf(0)
+        private set
+    var chargedCreatedThisSession by mutableIntStateOf(0)
         private set
     var maxCascadeThisSession by mutableIntStateOf(0)
         private set
@@ -1253,6 +1615,7 @@ class GameEngine(
                 val targetPos = if (tileA.rainbow) b else a
                 val targetType = grid[targetPos.first][targetPos.second].type
                 activateRainbow(rainbowPos, targetType)
+                tickBombs()
                 return
             }
 
@@ -1266,14 +1629,52 @@ class GameEngine(
             movesLeft -= 1
             resolveCascades()
             checkEnd()
+            if (phase == GamePhase.PLAYING) tickBombs()
+            checkEnd()
         } finally { isAnimating = false }
+    }
+
+    private suspend fun tickBombs() {
+        val toExplode = mutableSetOf<Pair<Int, Int>>()
+        val newGrid = grid.mapIndexed { r, row ->
+            row.mapIndexed { c, tile ->
+                if (tile.bombTimer > 0) {
+                    val nv = tile.bombTimer - 1
+                    if (nv <= 0) {
+                        toExplode.add(r to c)
+                        tile.copy(bombTimer = 0)
+                    } else {
+                        tile.copy(bombTimer = nv)
+                    }
+                } else tile
+            }
+        }
+        grid = newGrid
+        if (toExplode.isEmpty()) return
+
+        val explosionCells = mutableSetOf<Pair<Int, Int>>()
+        for ((r, c) in toExplode) {
+            for (rr in (r - 1)..(r + 1)) for (cc in (c - 1)..(c + 1)) {
+                if (rr in 0 until Board.SIZE && cc in 0 until Board.SIZE) {
+                    val t = grid[rr][cc]
+                    if (!t.wall && !t.stone && !t.void) explosionCells.add(rr to cc)
+                }
+            }
+        }
+        score = (score - 500).coerceAtLeast(0)
+
+        grid = Board.markMatching(grid, explosionCells)
+        delay(300)
+        grid = Board.dropAndRefill(grid, explosionCells, level.types, ::nextId, rng)
+        delay(320)
+        resolveCascades()
     }
 
     private suspend fun activateRainbow(pos: Pair<Int, Int>, targetType: Int) {
         val affected = mutableSetOf<Pair<Int, Int>>()
         for (r in 0 until Board.SIZE) for (c in 0 until Board.SIZE) {
             val t = grid[r][c]
-            if (!t.stone && (t.type == targetType || (r to c) == pos)) {
+            if (!t.isBlocker && (t.type == targetType || (r to c) == pos)) {
                 affected.add(r to c)
             }
         }
@@ -1312,19 +1713,46 @@ class GameEngine(
         var safety = 0
         var cascadeLevel = 0
         while (safety++ < 30) {
-            val matches = Board.findMatches(grid)
-            if (matches.isEmpty()) break
+            val rawMatches = Board.findMatches(grid)
+            if (rawMatches.isEmpty()) break
 
             cascadeLevel++
             if (cascadeLevel > maxCascadeThisSession) maxCascadeThisSession = cascadeLevel
             val multiplier = min(3f, 1f + (cascadeLevel - 1) * 0.5f)
 
+            // 5-в-ряд → радужный
             val rainbowAt = Board.findFiveInRow(grid)
             if (rainbowAt != null) rainbowsCreatedThisSession += 1
 
+            // 4-в-ряд (только если нет 5) → заряженный
+            val chargedAt = if (rainbowAt == null) Board.findFourInRow(grid) else null
+
+            // Расширяем matches за счёт активации ранее заряженных
+            val expandedMatches = rawMatches.toMutableSet()
+            var chargedExplosionHappened = false
+            for ((r, c) in rawMatches) {
+                if (grid[r][c].charged) {
+                    chargedExplosionHappened = true
+                    for (rr in (r - 1)..(r + 1)) for (cc in (c - 1)..(c + 1)) {
+                        if (rr in 0 until Board.SIZE && cc in 0 until Board.SIZE) {
+                            val t = grid[rr][cc]
+                            if (!t.wall && !t.stone && !t.void) expandedMatches.add(rr to cc)
+                        }
+                    }
+                }
+            }
+
+            val effectiveChargedAt = if (chargedExplosionHappened) null else chargedAt
+            if (effectiveChargedAt != null) chargedCreatedThisSession += 1
+
+            // Запоминаем типы ДО удаления
+            val rainbowType = if (rainbowAt != null) grid[rainbowAt.first][rainbowAt.second].type else -1
+            val chargedType = if (effectiveChargedAt != null)
+                grid[effectiveChargedAt.first][effectiveChargedAt.second].type else -1
+
             val newIce = iceGrid.map { it.toMutableList() }
             var iceBroken = 0
-            for ((r, c) in matches) {
+            for ((r, c) in expandedMatches) {
                 if (newIce[r][c] > 0) { newIce[r][c] -= 1; iceBroken++ }
             }
             if (iceBroken > 0) {
@@ -1333,7 +1761,7 @@ class GameEngine(
                 if (level.goalType == GoalType.BREAK_ICE) goalProgress += iceBroken
             }
 
-            val heartsCleared = matches.count { (r, c) ->
+            val heartsCleared = expandedMatches.count { (r, c) ->
                 grid[r][c].hasHeart && newIce[r][c] == 0
             }
             if (heartsCleared > 0) {
@@ -1343,12 +1771,12 @@ class GameEngine(
 
             if (level.goalType == GoalType.COLLECT_COLOR && level.goalColor != null) {
                 val target = level.goalColor
-                val count = matches.count { (r, c) -> grid[r][c].type == target }
+                val count = expandedMatches.count { (r, c) -> grid[r][c].type == target }
                 goalProgress += count
             }
 
             val unlocks = mutableSetOf<Pair<Int, Int>>()
-            for ((r, c) in matches) {
+            for ((r, c) in rawMatches) {
                 for (d in listOf(0 to 1, 0 to -1, 1 to 0, -1 to 0)) {
                     val nr = r + d.first; val nc = c + d.second
                     if (nr in 0 until Board.SIZE && nc in 0 until Board.SIZE) {
@@ -1357,29 +1785,50 @@ class GameEngine(
                 }
             }
 
-            val basePoints = matches.size * 10 + iceBroken * 15 + unlocks.size * 5 + heartsCleared * 20
+            val basePoints = expandedMatches.size * 10 +
+                    iceBroken * 15 +
+                    unlocks.size * 5 +
+                    heartsCleared * 20 +
+                    (if (chargedExplosionHappened) 50 else 0)
             score += (basePoints * multiplier).roundToInt()
 
-            grid = Board.markMatching(grid, matches)
+            grid = Board.markMatching(grid, expandedMatches)
             if (unlocks.isNotEmpty()) grid = Board.unlockCells(grid, unlocks)
             delay(240)
 
-            val toRemove = if (rainbowAt != null && rainbowAt in matches) {
-                matches - rainbowAt
-            } else matches
+            // Удаляем ВСЕ плитки матча — включая позиции будущих спецов
+            grid = Board.dropAndRefill(grid, expandedMatches, level.types, ::nextId, rng)
+            delay(280)
 
-            grid = Board.dropAndRefill(grid, toRemove, level.types, ::nextId, rng)
-
-            if (rainbowAt != null && rainbowAt in matches) {
+            // Вставляем радужный ПОСЛЕ гравитации, с новым id
+            if (rainbowAt != null && rainbowType >= 0) {
                 val g = grid.map { it.toMutableList() }.toMutableList()
-                val existing = g[rainbowAt.first][rainbowAt.second]
-                g[rainbowAt.first][rainbowAt.second] = existing.copy(
-                    rainbow = true, matching = false
-                )
-                grid = g.map { it.toList() }
+                val target = g[rainbowAt.first][rainbowAt.second]
+                if (!target.isBlocker) {
+                    g[rainbowAt.first][rainbowAt.second] = Tile(
+                        id = nextId(),
+                        type = rainbowType,
+                        rainbow = true
+                    )
+                    grid = g.map { it.toList() }
+                }
             }
 
-            delay(280)
+            // Вставляем заряженный ПОСЛЕ гравитации
+            if (effectiveChargedAt != null && chargedType >= 0) {
+                val g = grid.map { it.toMutableList() }.toMutableList()
+                val target = g[effectiveChargedAt.first][effectiveChargedAt.second]
+                if (!target.isBlocker) {
+                    g[effectiveChargedAt.first][effectiveChargedAt.second] = Tile(
+                        id = nextId(),
+                        type = chargedType,
+                        charged = true
+                    )
+                    grid = g.map { it.toList() }
+                }
+            }
+
+            delay(120)
 
             var reshuffleSafety = 0
             while (!Board.hasAnyMove(grid) && reshuffleSafety < 8) {
@@ -1435,7 +1884,7 @@ class GameEngine(
     private suspend fun applyBooster(type: BoosterType, r: Int, c: Int) {
         isAnimating = true
         try {
-            val affected: Set<Pair<Int, Int>> = when (type) {
+            val raw: Set<Pair<Int, Int>> = when (type) {
                 BoosterType.BOMB -> {
                     val cells = mutableSetOf<Pair<Int, Int>>()
                     for (rr in (r - 1)..(r + 1)) for (cc in (c - 1)..(c + 1)) {
@@ -1447,6 +1896,7 @@ class GameEngine(
                 BoosterType.ROCKET_V -> (0 until Board.SIZE).map { it to c }.toSet()
                 BoosterType.SHUFFLE -> emptySet()
             }
+            val affected = raw.filter { (rr, cc) -> !grid[rr][cc].wall && !grid[rr][cc].void }.toSet()
             if (affected.isEmpty()) return
 
             val newIce = iceGrid.map { it.toMutableList() }
@@ -1501,7 +1951,7 @@ class GameEngine(
     fun retry() {
         idCounter = 0
         val s = Board.generateWithObstacles(
-            level.types, level.obstacles, level.heartCount, ::nextId, rng
+            level.types, level.obstacles, level.heartCount, level.shape, ::nextId, rng
         )
         grid = s.grid
         iceGrid = s.iceGrid
@@ -1516,6 +1966,7 @@ class GameEngine(
         heartsThisSession = 0
         iceBrokenThisSession = 0
         rainbowsCreatedThisSession = 0
+        chargedCreatedThisSession = 0
         maxCascadeThisSession = 0
     }
 }
@@ -1714,11 +2165,14 @@ fun LevelCard(level: LevelConfig, unlocked: Boolean, bestScore: Int, onClick: ()
         bestScore > 0 -> 1
         else -> 0
     }
+    val hasWall = level.obstacles.any { it.contains('W') }
+    val hasBomb = level.obstacles.any { it.contains('B') }
+    val hasShape = level.shape.isNotEmpty()
 
     Box(
         modifier = Modifier.fillMaxWidth().aspectRatio(1f)
             .clip(RoundedCornerShape(18.dp)).background(gradient)
-            .clickable(enabled = unlocked) { onClick() }.padding(8.dp)
+            .clickable(enabled = unlocked) { onClick() }.padding(6.dp)
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -1726,29 +2180,37 @@ fun LevelCard(level: LevelConfig, unlocked: Boolean, bestScore: Int, onClick: ()
             verticalArrangement = Arrangement.Center
         ) {
             if (unlocked) {
-                Text("${level.id}", fontSize = 30.sp, color = Color.White, fontWeight = FontWeight.Black)
-                Spacer(Modifier.height(2.dp))
-                Text("★".repeat(stars) + "☆".repeat(3 - stars), fontSize = 13.sp, color = Gold)
+                Text("${level.id}", fontSize = 26.sp, color = Color.White, fontWeight = FontWeight.Black)
+                Text("★".repeat(stars) + "☆".repeat(3 - stars), fontSize = 12.sp, color = Gold)
 
                 when {
                     level.goalType == GoalType.COLLECT_COLOR && level.goalColor != null -> {
-                        Spacer(Modifier.height(2.dp))
-                        Text("◆ ${level.goalCount}", fontSize = 11.sp,
+                        Text("◆ ${level.goalCount}", fontSize = 10.sp,
                             color = Color.White, fontWeight = FontWeight.Bold)
                     }
                     level.goalType == GoalType.BREAK_ICE -> {
-                        Spacer(Modifier.height(2.dp))
-                        Text("❄ лёд", fontSize = 11.sp,
+                        Text("❄ лёд", fontSize = 10.sp,
                             color = Color(0xFFB3E5FC), fontWeight = FontWeight.Bold)
                     }
                     level.goalType == GoalType.HEART -> {
-                        Spacer(Modifier.height(2.dp))
-                        Text("❤ ${level.heartCount}", fontSize = 11.sp,
+                        Text("❤ ${level.heartCount}", fontSize = 10.sp,
                             color = Color(0xFFFF8A80), fontWeight = FontWeight.Bold)
                     }
                 }
+                if (hasShape) {
+                    Text("✦", fontSize = 11.sp, color = Color.White)
+                }
+                if (hasBomb || hasWall) {
+                    Text(
+                        buildString {
+                            if (hasBomb) append("💣")
+                            if (hasWall) append("🧱")
+                        },
+                        fontSize = 10.sp
+                    )
+                }
             } else {
-                Text("🔒", fontSize = 34.sp)
+                Text("🔒", fontSize = 30.sp)
             }
         }
     }
@@ -1908,7 +2370,6 @@ fun DailyChallengeScreen(
     ads: AdsController,
     onExit: () -> Unit
 ) {
-    // Генерируем уровень с сидом по дате
     val seed = progress.dailyChallengeSeed()
     val rng = remember { Random(seed) }
     val dailyLevel = remember {
@@ -2110,18 +2571,17 @@ fun GameScreen(
     when (engine.phase) {
         GamePhase.WON -> {
             LaunchedEffect(Unit) {
-                // Учёт для достижений
                 if (engine.heartsThisSession > 0) progress.recordHeartsCollected(engine.heartsThisSession)
                 if (engine.iceBrokenThisSession > 0) progress.recordIceBroken(engine.iceBrokenThisSession)
                 repeat(engine.rainbowsCreatedThisSession) { progress.recordRainbowCreated() }
+                repeat(engine.chargedCreatedThisSession) { progress.recordChargedCreated() }
                 if (engine.maxCascadeThisSession > 0) progress.recordCascade(engine.maxCascadeThisSession)
                 if (!engine.usedBooster) progress.recordNoBoosterWin()
 
                 if (isDailyChallenge) {
-                    // Награда за испытание без записи в unlockedLevel
                     progress.addCoins(level.rewardCoins)
                 } else {
-                    progress.recordWin(level.id, engine.score, level.rewardCoins)
+                    progress.recordWin(level.id, engine.score, level.rewardCoins, engine.hasBombs)
                 }
 
                 val newAch = progress.checkAchievements()
@@ -2467,6 +2927,7 @@ fun BoardView(
 
             for (r in 0 until Board.SIZE) for (c in 0 until Board.SIZE) {
                 val tile = grid[r][c]
+                if (tile.void) continue
                 key(tile.id) {
                     TileView(
                         tile = tile,
@@ -2516,9 +2977,13 @@ fun TileView(
         animationSpec = tween(150)
     )
 
-    val explodeColor = if (tile.stone) Color(0xFF9E9E9E)
-    else if (tile.rainbow) Color(0xFFFFD740)
-    else TileType.fromOrdinal(tile.type).color
+    val explodeColor = when {
+        tile.wall -> WallColor
+        tile.stone -> Color(0xFF9E9E9E)
+        tile.rainbow -> Color(0xFFFFD740)
+        tile.charged -> Color(0xFFFFC107)
+        else -> TileType.fromOrdinal(tile.type).color
+    }
 
     Box(modifier = Modifier.offset { offset }.size(tileSizeDp)) {
         if (explosionProgress.value < 1f) {
@@ -2557,19 +3022,35 @@ fun TileView(
                     scaleY = scale.value * selectedScale
                 )
         ) {
-            if (tile.stone) {
-                StoneTile(Modifier.fillMaxSize())
-            } else {
-                GemTile(
-                    TileType.fromOrdinal(tile.type),
-                    Modifier.fillMaxSize(),
-                    rainbow = tile.rainbow
-                )
-                if (tile.hasHeart) {
-                    HeartOverlay(Modifier.fillMaxSize())
-                }
-                if (tile.locked) {
-                    LockOverlay(Modifier.fillMaxSize())
+            when {
+                tile.wall -> WallTile(Modifier.fillMaxSize())
+                tile.stone -> StoneTile(Modifier.fillMaxSize())
+                else -> {
+                    GemTile(
+                        TileType.fromOrdinal(tile.type),
+                        Modifier.fillMaxSize(),
+                        rainbow = tile.rainbow
+                    )
+                    if (tile.charged) {
+                        ChargedOverlay(Modifier.fillMaxSize())
+                    }
+                    if (tile.hasHeart) {
+                        HeartOverlay(Modifier.fillMaxSize())
+                    }
+                    if (tile.locked) {
+                        LockOverlay(Modifier.fillMaxSize())
+                    }
+                    if (tile.bombTimer > 0) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            BombOverlay(tile.bombTimer, Modifier.fillMaxSize())
+                            Text(
+                                "${tile.bombTimer}",
+                                color = Color.White,
+                                fontSize = (tileSizeDp.value * 0.4f).sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                    }
                 }
             }
         }
