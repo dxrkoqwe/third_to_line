@@ -9,3 +9,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Release keystore — никогда не коммитить!
+release.keystore
+*.keystore
+*.jks

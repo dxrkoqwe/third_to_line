@@ -21,42 +21,26 @@ object SoundManager {
 
     fun playMatch() {
         if (!isEnabled) return
-        try {
-            toneGenerator?.startTone(ToneGenerator.TONE_PROP_ACK, 60)
-        } catch (_: Throwable) {}
+        try { toneGenerator?.startTone(ToneGenerator.TONE_PROP_ACK, 60) } catch (_: Throwable) {}
     }
 
     fun playSwap() {
         if (!isEnabled) return
-        try {
-            toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 25)
-        } catch (_: Throwable) {}
+        try { toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 25) } catch (_: Throwable) {}
     }
 
     fun playExplosion() {
         if (!isEnabled) return
-        try {
-            toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP2, 110)
-        } catch (_: Throwable) {}
+        try { toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP2, 110) } catch (_: Throwable) {}
     }
 
     fun playWin() {
         if (!isEnabled) return
-        try {
-            toneGenerator?.startTone(ToneGenerator.TONE_PROP_PROMPT, 220)
-        } catch (_: Throwable) {}
+        try { toneGenerator?.startTone(ToneGenerator.TONE_PROP_PROMPT, 220) } catch (_: Throwable) {}
     }
 
     fun playLose() {
         if (!isEnabled) return
-        try {
-            toneGenerator?.startTone(ToneGenerator.TONE_SUP_ERROR, 200)
-        } catch (_: Throwable) {}
-    }
-
-    fun release() {
-        try { toneGenerator?.release() } catch (_: Throwable) {}
-        toneGenerator = null
-        initialized = false
+        try { toneGenerator?.startTone(ToneGenerator.TONE_SUP_ERROR, 200) } catch (_: Throwable) {}
     }
 }

@@ -110,6 +110,7 @@ val WallColor = Color(0xFF6D4C41)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SoundManager.init(this)
         setContent {
             MaterialTheme(
                 colorScheme = darkColorScheme(
@@ -943,7 +944,6 @@ object Levels {
         LevelConfig(9, 30, 6, 0, Difficulty.NORMAL, 22,
             goalType = GoalType.HEART, heartCount = 10),
         LevelConfig(10, 30, 6, 1600, Difficulty.NORMAL, 25),
-
         LevelConfig(11, 30, 6, 1300, Difficulty.NORMAL, 22,
             obstacles = listOf(
                 "........", "........", "..#.....", "........",
@@ -977,7 +977,6 @@ object Levels {
         LevelConfig(19, 32, 7, 0, Difficulty.HARD, 32,
             goalType = GoalType.HEART, heartCount = 12),
         LevelConfig(20, 30, 7, 2200, Difficulty.HARD, 35),
-
         LevelConfig(21, 30, 7, 0, Difficulty.HARD, 30,
             goalType = GoalType.BREAK_ICE,
             obstacles = listOf(
@@ -1016,7 +1015,6 @@ object Levels {
                 "........", ".2....2.", "........", "..#..#..")),
         LevelConfig(30, 32, 7, 0, Difficulty.SUPER_HARD, 48,
             goalType = GoalType.COLLECT_COLOR, goalColor = 6, goalCount = 32),
-
         LevelConfig(31, 32, 7, 3600, Difficulty.SUPER_HARD, 50,
             obstacles = listOf(
                 "##....##", "........", "........", "..L..L..",
@@ -1057,7 +1055,6 @@ object Levels {
             obstacles = listOf(
                 "#......#", ".222222.", "..#..#..", "..2LL2..",
                 "..2LL2..", "..#..#..", ".222222.", "#......#")),
-
         LevelConfig(41, 32, 7, 5500, Difficulty.SUPER_HARD, 105,
             shape = Shapes.cross),
         LevelConfig(42, 34, 7, 0, Difficulty.SUPER_HARD, 110,
@@ -1074,7 +1071,6 @@ object Levels {
         LevelConfig(45, 36, 7, 0, Difficulty.SUPER_HARD, 125,
             goalType = GoalType.HEART, heartCount = 22,
             shape = Shapes.diamond),
-
         LevelConfig(46, 32, 7, 6500, Difficulty.SUPER_HARD, 130,
             obstacles = listOf(
                 "#......#", ".222222.", "..#..#..", "..2LL2..",
@@ -1098,7 +1094,6 @@ object Levels {
             obstacles = listOf(
                 "#......#", ".222222.", "..#..#..", "..2LL2..",
                 "..2LL2..", "..#..#..", ".222222.", "#......#")),
-
         LevelConfig(51, 34, 7, 7500, Difficulty.SUPER_HARD, 100,
             shape = Shapes.hourglass),
         LevelConfig(52, 34, 7, 0, Difficulty.SUPER_HARD, 110,
@@ -1129,7 +1124,6 @@ object Levels {
             obstacles = listOf(
                 "#222222#", "22222222", "22LLLL22", "22LLLL22",
                 "22LLLL22", "22LLLL22", "22222222", "#222222#")),
-
         LevelConfig(61, 30, 7, 9500, Difficulty.SUPER_HARD, 150,
             shape = Shapes.butterfly),
         LevelConfig(62, 30, 7, 0, Difficulty.SUPER_HARD, 155,
@@ -1172,7 +1166,6 @@ object Levels {
             obstacles = listOf(
                 "W......W", "........", ".WW..WW.", "........",
                 "........", ".WW..WW.", "........", "W......W")),
-
         LevelConfig(71, 30, 7, 12000, Difficulty.SUPER_HARD, 200,
             shape = Shapes.ring),
         LevelConfig(72, 30, 7, 0, Difficulty.SUPER_HARD, 210,
@@ -1218,7 +1211,6 @@ object Levels {
             obstacles = listOf(
                 "B......B", ".222222.", "..B..B..", "..2222..",
                 "..2222..", "..B..B..", ".222222.", "B......B")),
-
         LevelConfig(81, 32, 7, 17000, Difficulty.SUPER_HARD, 300,
             shape = Shapes.diamond,
             obstacles = listOf(
@@ -1267,7 +1259,6 @@ object Levels {
             obstacles = listOf(
                 "WBBBBBBW", "B......B", "B.WWWW.B", "B.W..W.B",
                 "B.W..W.B", "B.WWWW.B", "B......B", "WBBBBBBW")),
-
         LevelConfig(91, 32, 7, 22000, Difficulty.SUPER_HARD, 450,
             shape = Shapes.heart,
             obstacles = listOf(
@@ -1364,6 +1355,8 @@ class ProgressStore(context: Context) {
     var bestScores by mutableStateOf(loadScores())
     var lastDailyBonusTime by mutableStateOf(prefs.getLong("dailyTime", 0L))
     var dailyBonusStreak by mutableIntStateOf(prefs.getInt("dailyStreak", 0))
+    var soundEnabled by mutableStateOf(prefs.getBoolean("soundEnabled", true))
+        private set
 
     var totalWins by mutableIntStateOf(prefs.getInt("totalWins", 0))
     var totalCoinsEarned by mutableIntStateOf(prefs.getInt("totalCoinsEarned", 0))
@@ -1377,6 +1370,11 @@ class ProgressStore(context: Context) {
     var unlockedAchievements by mutableStateOf(loadAchievements())
 
     var lastDailyChallengeDate by mutableStateOf(prefs.getString("dailyChallengeDate", "") ?: "")
+
+    fun updateSoundEnabled(enabled: Boolean) {
+        soundEnabled = enabled
+        save()
+    }
 
     private fun loadScores(): Map<Int, Int> {
         val s = prefs.getString("scores", "") ?: ""
@@ -1519,6 +1517,7 @@ class ProgressStore(context: Context) {
             .putInt("totalCharged", totalCharged)
             .putString("achievements", achStr)
             .putString("dailyChallengeDate", lastDailyChallengeDate)
+            .putBoolean("soundEnabled", soundEnabled)
             .apply()
     }
 }
@@ -1659,6 +1658,7 @@ class GameEngine(
             }
         }
         score = (score - 500).coerceAtLeast(0)
+        SoundManager.playExplosion()
 
         grid = Board.markMatching(grid, explosionCells)
         delay(300)
@@ -1698,6 +1698,7 @@ class GameEngine(
         }
 
         grid = Board.markMatching(grid, affected)
+        SoundManager.playExplosion()
         delay(280)
         score += affected.size * 25
         grid = Board.dropAndRefill(grid, affected, level.types, ::nextId, rng)
@@ -1713,6 +1714,8 @@ class GameEngine(
             val rawMatches = Board.findMatches(grid)
             if (rawMatches.isEmpty()) break
 
+            SoundManager.playMatch()
+
             cascadeLevel++
             if (cascadeLevel > maxCascadeThisSession) maxCascadeThisSession = cascadeLevel
             val multiplier = min(3f, 1f + (cascadeLevel - 1) * 0.5f)
@@ -1727,6 +1730,7 @@ class GameEngine(
             for ((r, c) in rawMatches) {
                 if (grid[r][c].charged) {
                     chargedExplosionHappened = true
+                    SoundManager.playExplosion()
                     for (rr in (r - 1)..(r + 1)) for (cc in (c - 1)..(c + 1)) {
                         if (rr in 0 until Board.SIZE && cc in 0 until Board.SIZE) {
                             val t = grid[rr][cc]
@@ -1826,6 +1830,34 @@ class GameEngine(
                 reshuffleSafety++
             }
         }
+
+        // Подсаживаем сердца, если их стало меньше, чем нужно для цели.
+        // Иначе уровень с целью HEART может стать непроходимым.
+        if (level.goalType == GoalType.HEART) {
+            val remaining = level.heartCount - goalProgress
+            if (remaining > 0) {
+                val onBoard = grid.sumOf { row -> row.count { it.hasHeart } }
+                if (onBoard < remaining) {
+                    val toPlant = (remaining - onBoard).coerceAtMost(8)
+                    val candidates = mutableListOf<Pair<Int, Int>>()
+                    for (rr in 0 until Board.SIZE) for (cc in 0 until Board.SIZE) {
+                        val t = grid[rr][cc]
+                        if (!t.isBlocker && !t.hasHeart && !t.rainbow && !t.charged) {
+                            candidates.add(rr to cc)
+                        }
+                    }
+                    candidates.shuffle(rng)
+                    val chosen = candidates.take(toPlant).toSet()
+                    if (chosen.isNotEmpty()) {
+                        grid = grid.mapIndexed { rr, row ->
+                            row.mapIndexed { cc, tile ->
+                                if (rr to cc in chosen) tile.copy(hasHeart = true) else tile
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fun tapTile(r: Int, c: Int, scope: CoroutineScope) {
@@ -1851,6 +1883,7 @@ class GameEngine(
         if (activeBooster != null) return
         if (!Board.canSwap(grid, from, to)) return
         selected = null
+        SoundManager.playSwap()
         scope.launch { trySwap(from, to) }
     }
 
@@ -1912,6 +1945,7 @@ class GameEngine(
             }
 
             grid = Board.markMatching(grid, affected)
+            SoundManager.playExplosion()
             delay(240)
             score += affected.size * 15 + heartsCleared * 20
             grid = Board.dropAndRefill(grid, affected, level.types, ::nextId, rng)
@@ -1976,6 +2010,10 @@ fun AppRoot() {
     var currentLevelId by remember { mutableStateOf<Int?>(null) }
     var showDaily by remember { mutableStateOf(false) }
     var newAchievements by remember { mutableStateOf<List<Achievement>>(emptyList()) }
+
+    LaunchedEffect(progress.soundEnabled) {
+        SoundManager.isEnabled = progress.soundEnabled
+    }
 
     GradientBg {
         when (screen) {
@@ -2070,12 +2108,22 @@ fun LevelMapScreen(
         ) {
             Text("MATCH 3", fontSize = 28.sp, fontWeight = FontWeight.Black,
                 color = Accent, letterSpacing = 4.sp)
-            Box(
-                modifier = Modifier.clip(RoundedCornerShape(20.dp))
-                    .background(CardBg).clickable { onOpenAchievements() }
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                Text("🏆", fontSize = 20.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(
+                    modifier = Modifier.clip(RoundedCornerShape(20.dp))
+                        .background(CardBg)
+                        .clickable { progress.updateSoundEnabled(!progress.soundEnabled) }
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Text(if (progress.soundEnabled) "🔊" else "🔇", fontSize = 20.sp)
+                }
+                Box(
+                    modifier = Modifier.clip(RoundedCornerShape(20.dp))
+                        .background(CardBg).clickable { onOpenAchievements() }
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Text("🏆", fontSize = 20.sp)
+                }
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -2561,6 +2609,7 @@ fun GameScreen(
     when (engine.phase) {
         GamePhase.WON -> {
             LaunchedEffect(Unit) {
+                SoundManager.playWin()
                 if (engine.heartsThisSession > 0) progress.recordHeartsCollected(engine.heartsThisSession)
                 if (engine.iceBrokenThisSession > 0) progress.recordIceBroken(engine.iceBrokenThisSession)
                 repeat(engine.rainbowsCreatedThisSession) { progress.recordRainbowCreated() }
@@ -2592,6 +2641,7 @@ fun GameScreen(
             )
         }
         GamePhase.LOST -> {
+            LaunchedEffect(Unit) { SoundManager.playLose() }
             AlertDialog(
                 onDismissRequest = {},
                 title = { Text("Ходы закончились") },

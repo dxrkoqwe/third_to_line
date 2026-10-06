@@ -2,6 +2,7 @@ package com.example.match3
 
 import android.app.Activity
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import com.yandex.mobile.ads.common.AdError
 import com.yandex.mobile.ads.common.AdRequest
 import com.yandex.mobile.ads.common.AdRequestError
@@ -20,6 +21,21 @@ class YandexRewardedAdsController(private val context: Context) : AdsController 
     private var isLoading = false
     private var currentOnReward: (() -> Unit)? = null
 
+    /**
+     * Возвращает ID рекламного блока:
+     *  - для debug-сборки — официальный тестовый ID Яндекса (безопасно кликать);
+     *  - для release — боевой Ad Unit ID из личного кабинета РСЯ.
+     */
+    private fun getAdUnitId(): String {
+        val isDebug = (context.applicationInfo.flags and
+                ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        return if (isDebug) {
+            "demo-rewarded-yandex"
+        } else {
+            "R-M-20188065-2"
+        }
+    }
+
     init {
         YandexAds.initialize(context) {
             loadAd()
@@ -31,7 +47,7 @@ class YandexRewardedAdsController(private val context: Context) : AdsController 
         if (isLoading || rewardedAd != null) return
         isLoading = true
 
-        val adUnitId = "demo-rewarded-yandex"
+        val adUnitId = getAdUnitId()
         val adRequest = AdRequest.Builder(adUnitId).build()
 
         rewardedAdLoader?.loadAd(adRequest, object : RewardedAdLoadListener {
